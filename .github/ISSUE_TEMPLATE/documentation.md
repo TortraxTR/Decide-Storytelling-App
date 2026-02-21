@@ -1,7 +1,7 @@
 ---
-name: Offline work
-about: Anything that isn't related to work that needs to be done on GitHub, such as
-  forms and slides.
+name: Documentation
+about: Forms, README and other such documents that will be used to share information
+  and submitted for the course.
 title: ''
 labels: ''
 assignees: ''
@@ -9,10 +9,8 @@ assignees: ''
 ---
 
 ## Goal
----
 
 ## Acceptance criteria:
----
 - [ ] To be checked when done
 - [ ] To be checked when done
 - [ ] To be checked when done
