@@ -15,22 +15,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Story {
+model Episode {
   id          String      @id @default(uuid())
   title       String
   description String?
   thumbnail   String?     // Local path for now, S3 URL later
-  authorId    String      
+  authorId    String      // will be replaced with user once it's created
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   
-  nodes       StoryNode[]
+  nodes       EpisodeNode[]
 }
 
-model StoryNode {
+model EpisodeNode {
   id          String   @id @default(uuid())
-  storyId     String
-  story       Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  EpisodeId     String
+  Episode       Episode    @relation(fields: [EpisodeId], references: [id], onDelete: Cascade)
   
   contentUrl  String   // Local /assets/ path for now
   nodeRole    NodeRole @default(MIDDLE)
