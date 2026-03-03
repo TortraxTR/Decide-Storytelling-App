@@ -33,20 +33,11 @@ model StoryNode {
   story       Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   
   contentUrl  String   // Local /assets/ path for now
-  isStart     Boolean  @default(false)
-  isEnd       Boolean  @default(false)
+  nodeRole    NodeRole @default(MIDDLE)
+}
 
-  // --- The Flattened Binary Arcs ---
-  
-  choiceAText     String?
-  choiceATargetId String?
-  choiceATarget   StoryNode? @relation("ChoiceA", fields: [choiceATargetId], references: [id])
-
-  choiceBText     String?
-  choiceBTargetId String?
-  choiceBTarget   StoryNode? @relation("ChoiceB", fields: [choiceBTargetId], references: [id])
-
-  // Required back-relations so Prisma knows how the self-referential graph resolves
-  incomingChoiceA StoryNode[] @relation("ChoiceA")
-  incomingChoiceB StoryNode[] @relation("ChoiceB")
+enum NodeRole {
+  START
+  MIDDLE
+  END
 }
