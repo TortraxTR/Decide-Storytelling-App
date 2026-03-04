@@ -146,50 +146,56 @@ async def seed_database():
 
         # Create decisions
         print("\nCreating decisions...")
-        decision1_1 = await db.decision.create(
+        await db.decision.create(
             data={
                 "text": "Follow the map to the coordinates",
+                "episodeId": episode1_1.id,
                 "sourceNodeId": node1_1_1.id,
                 "targetNodeId": node1_1_2.id,
             }
         )
-        decision1_2 = await db.decision.create(
+        await db.decision.create(
             data={
                 "text": "Ignore the map and explore the chamber",
+                "episodeId": episode1_1.id,
                 "sourceNodeId": node1_1_1.id,
                 "targetNodeId": node1_1_3.id,
             }
         )
-        decision1_3 = await db.decision.create(
+        await db.decision.create(
             data={
                 "text": "Continue on the path",
+                "episodeId": episode1_1.id,
                 "sourceNodeId": node1_1_2.id,
                 "targetNodeId": node1_1_3.id,
             }
         )
 
-        decision2_1 = await db.decision.create(
+        await db.decision.create(
             data={
                 "text": "Head through the dense forest",
+                "episodeId": episode1_2.id,
                 "sourceNodeId": node1_2_1.id,
                 "targetNodeId": node1_2_2.id,
             }
         )
-        decision2_2 = await db.decision.create(
+        await db.decision.create(
             data={
                 "text": "Take the mountain pass",
+                "episodeId": episode1_2.id,
                 "sourceNodeId": node1_2_1.id,
                 "targetNodeId": node1_2_3.id,
             }
         )
-        decision2_3 = await db.decision.create(
+        await db.decision.create(
             data={
                 "text": "Venture deeper into the ruins",
+                "episodeId": episode1_2.id,
                 "sourceNodeId": node1_2_2.id,
                 "targetNodeId": node1_2_3.id,
             }
         )
-        print(f"Created 6 decisions")
+        print("Created 6 decisions")
 
         print("\nDatabase seeding completed successfully!")
         print("\nSummary:")
