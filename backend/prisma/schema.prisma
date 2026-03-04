@@ -54,42 +54,48 @@ model Story {
 }
 
 model Episode {
-  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  storyId     String       @db.Uuid
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storyId     String        @db.Uuid
   title       String
   description String?
-  thumbnail   String?      @db.VarChar(2048)
-  order       Int          @default(0)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  story       Story        @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  thumbnail   String?       @db.VarChar(2048)
+  order       Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  story       Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
   nodes       EpisodeNode[]
+  decisions   Decision[]
 
   @@unique([storyId, order])
   @@index([storyId, order])
 }
 
 model EpisodeNode {
-  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  episodeId         String      @db.Uuid
-  contentUrl        String      @db.VarChar(2048)
-  isStart           Boolean     @default(false)
-  isEnd             Boolean     @default(false)
-  episode           Episode     @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  outgoingDecisions Decision[]  @relation("SourceNode")
-  incomingDecisions Decision[]  @relation("TargetNode")
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  episodeId         String     @db.Uuid
+  contentUrl        String     @db.VarChar(2048)
+  isStart           Boolean    @default(false)
+  isEnd             Boolean    @default(false)
+  episode           Episode    @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  outgoingDecisions Decision[] @relation("SourceNode")
+  incomingDecisions Decision[] @relation("TargetNode")
 
   @@index([episodeId])
+  @@unique([id, episodeId])
 }
 
 model Decision {
   id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   text         String?
+  episodeId    String      @db.Uuid
   sourceNodeId String      @db.Uuid
   targetNodeId String      @db.Uuid
-  sourceNode   EpisodeNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
-  targetNode   EpisodeNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
 
+  episode      Episode     @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  sourceNode   EpisodeNode @relation("SourceNode", fields: [sourceNodeId, episodeId], references: [id, episodeId], onDelete: Cascade)
+  targetNode   EpisodeNode @relation("TargetNode", fields: [targetNodeId, episodeId], references: [id, episodeId], onDelete: Cascade)
+
+  @@index([episodeId])
   @@index([sourceNodeId])
   @@index([targetNodeId])
 }
