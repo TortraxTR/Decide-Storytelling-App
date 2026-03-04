@@ -9,15 +9,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Episode {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+model Story {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   title       String
   description String?
   thumbnail   String?
   authorId    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  episodes    Episode[]
+
+  @@index([authorId])
+}
+
+model Episode {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storyId     String        @db.Uuid
+  title       String
+  description String?
+  thumbnail   String?
+  authorId    String
+  order       Int           @default(0)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @default(now()) @updatedAt
+  story       Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
   EpisodeNode EpisodeNode[]
+
+  @@index([storyId])
+  @@index([authorId])
 }
 
 model EpisodeNode {
@@ -42,4 +61,5 @@ model Decision {
   EpisodeNode_Decision_targetNodeIdToEpisodeNode EpisodeNode @relation("Decision_targetNodeIdToEpisodeNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
 
   @@index([sourceNodeId])
+  @@index([targetNodeId])
 }
