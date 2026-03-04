@@ -1,4 +1,4 @@
-# Interactive-Password-Vault
+# Decide Storytelling App
 This project is a graduation project for Koç University's Computer Engineering program, made for COMP 491 course.
 
 # Schema
