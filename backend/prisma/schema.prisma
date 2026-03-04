@@ -9,14 +9,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+//User-related Models
+
+
+
+// Narrative Engine
 model Story {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   title       String
   description String?
-  thumbnail   String?
+  thumbnail   String?   @db.VarChar(2048)
   authorId    String
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now()) @updatedAt
+  updatedAt   DateTime  @updatedAt
   episodes    Episode[]
 
   @@index([authorId])
@@ -27,38 +32,37 @@ model Episode {
   storyId     String        @db.Uuid
   title       String
   description String?
-  thumbnail   String?
-  authorId    String
+  thumbnail   String?       @db.VarChar(2048)
   order       Int           @default(0)
   createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @default(now()) @updatedAt
+  updatedAt   DateTime      @updatedAt
   story       Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  EpisodeNode EpisodeNode[]
+  nodes       EpisodeNode[]
 
-  @@index([storyId])
-  @@index([authorId])
+  @@unique([storyId, order])
+  @@index([storyId, order])
 }
 
 model EpisodeNode {
-  id                                          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  episodeId                                   String     @db.Uuid
-  contentUrl                                  String
-  isStart                                     Boolean    @default(false)
-  isEnd                                       Boolean    @default(false)
-  Decision_Decision_sourceNodeIdToEpisodeNode Decision[] @relation("Decision_sourceNodeIdToEpisodeNode")
-  Decision_Decision_targetNodeIdToEpisodeNode Decision[] @relation("Decision_targetNodeIdToEpisodeNode")
-  Episode                                     Episode    @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  episodeId        String     @db.Uuid
+  contentUrl       String     @db.VarChar(2048)
+  isStart          Boolean    @default(false)
+  isEnd            Boolean    @default(false)
+  episode          Episode    @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  outgoingDecisions Decision[] @relation("SourceNode")
+  incomingDecisions Decision[] @relation("TargetNode")
 
   @@index([episodeId])
 }
 
 model Decision {
-  id                                             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  text                                           String?
-  sourceNodeId                                   String      @db.Uuid
-  targetNodeId                                   String      @db.Uuid
-  EpisodeNode_Decision_sourceNodeIdToEpisodeNode EpisodeNode @relation("Decision_sourceNodeIdToEpisodeNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
-  EpisodeNode_Decision_targetNodeIdToEpisodeNode EpisodeNode @relation("Decision_targetNodeIdToEpisodeNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  text         String?
+  sourceNodeId String      @db.Uuid
+  targetNodeId String      @db.Uuid
+  sourceNode   EpisodeNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode   EpisodeNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
 
   @@index([sourceNodeId])
   @@index([targetNodeId])
