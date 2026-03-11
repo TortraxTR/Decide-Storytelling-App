@@ -1,10 +1,10 @@
+# decisions.py
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from db import db
 
 router = APIRouter(prefix="/decisions", tags=["Decisions"])
-
 
 class DecisionCreate(BaseModel):
     episodeId: str
@@ -12,11 +12,54 @@ class DecisionCreate(BaseModel):
     targetNodeId: str
     text: Optional[str] = None
 
-
 class DecisionUpdate(BaseModel):
     text: Optional[str] = None
     targetNodeId: Optional[str] = None
 
+async def detect_cycle(episode_id: str, start_node: str, target_node: str) -> bool:
+    """
+    Performs a Depth-First Search to see if target_node can reach start_node.
+    If it can, adding an edge from start_node to target_node creates a cycle.
+    """
+    decisions = await db.decision.find_many(where={"episodeId": episode_id})
+    
+    adj = {}
+    for d in decisions:
+        if d.sourceNodeId not in adj:
+            adj[d.sourceNodeId] = []
+        adj[d.sourceNodeId].append(d.targetNodeId)
+    
+    stack = [target_node]
+    visited = set()
+    
+    while stack:
+        curr = stack.pop()
+        if curr == start_node:
+            return True # Cycle detected
+        
+        if curr not in visited:
+            visited.add(curr)
+            stack.extend(adj.get(curr, []))
+            
+    return False
+
+@router.post("/", status_code=status.HTTP_201_CREATED)
+async def create_decision(payload: DecisionCreate):
+    # 1. Validate nodes belong to the same episode
+    source = await db.episodenode.find_unique(where={"id": payload.sourceNodeId})
+    target = await db.episodenode.find_unique(where={"id": payload.targetNodeId})
+    
+    if not source or not target or source.episodeId != payload.episodeId or target.episodeId != payload.episodeId:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nodes must exist and belong to the specified episode.")
+
+    # 2. Cycle Detection
+    if await detect_cycle(payload.episodeId, payload.sourceNodeId, payload.targetNodeId):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Logic Error: This choice creates an infinite loop.")
+
+    try:
+        return await db.decision.create(data=payload.model_dump(exclude_none=True))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.get("/")
 async def list_decisions(
