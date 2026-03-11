@@ -9,15 +9,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User-related Models
+// ---------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ---------------------------------------------------------
+// USER MANAGEMENT
+// ---------------------------------------------------------
+
 model User {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email      String   @unique
-  username   String?  @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  author     Author?
-  reader     Reader?
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String   @unique
+  username  String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author    Author?
+  reader    Reader?
 }
 
 model Author {
@@ -26,62 +40,82 @@ model Author {
   bio       String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   stories   Story[]
 }
 
 model Reader {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId     String   @unique @db.Uuid
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String        @unique @db.Uuid
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readSessions ReadSession[]
 }
 
-// Narrative Engine
+// ---------------------------------------------------------
+// CONTENT CREATION (Author Dashboard)
+// ---------------------------------------------------------
+
 model Story {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId    String        @db.Uuid
   title       String
   description String?
-  thumbnail   String?   @db.VarChar(2048)
-  authorId    String    @db.Uuid
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  thumbnail   String?       @db.VarChar(2048)
+  status      PublishStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  author      Author        @relation(fields: [authorId], references: [id], onDelete: Cascade)
   episodes    Episode[]
-  author      Author    @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([authorId])
 }
 
 model Episode {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  storyId     String        @db.Uuid
-  title       String
-  description String?
-  thumbnail   String?       @db.VarChar(2048)
-  order       Int           @default(0)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  story       Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  nodes       EpisodeNode[]
-  decisions   Decision[]
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storyId      String        @db.Uuid
+  title        String
+  order        Int
+  status       PublishStatus @default(DRAFT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  story        Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  nodes        EpisodeNode[]
+  decisions    Decision[]
+  readSessions ReadSession[]
 
   @@unique([storyId, order])
   @@index([storyId, order])
 }
 
-model EpisodeNode {
-  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  episodeId         String     @db.Uuid
-  contentUrl        String     @db.VarChar(2048)
-  isStart           Boolean    @default(false)
-  isEnd             Boolean    @default(false)
-  episode           Episode    @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  outgoingDecisions Decision[] @relation("SourceNode")
-  incomingDecisions Decision[] @relation("TargetNode")
+// ---------------------------------------------------------
+// NARRATIVE ENGINE (DAG Structure)
+// ---------------------------------------------------------
 
-  @@index([episodeId])
+model EpisodeNode {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  episodeId         String        @db.Uuid
+  
+  // S3 & CloudFront Optimization
+  assetKey          String        @db.VarChar(1024) 
+  assetWidth        Int?          
+  assetHeight       Int?          
+  
+  isStart           Boolean       @default(false)
+  isEnd             Boolean       @default(false)
+
+  episode           Episode       @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  outgoingDecisions Decision[]    @relation("SourceNode")
+  incomingDecisions Decision[]    @relation("TargetNode")
+  readSessions      ReadSession[]
+
   @@unique([id, episodeId])
+  @@index([episodeId])
 }
 
 model Decision {
@@ -92,10 +126,33 @@ model Decision {
   targetNodeId String      @db.Uuid
 
   episode      Episode     @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  sourceNode   EpisodeNode @relation("SourceNode", fields: [sourceNodeId, episodeId], references: [id, episodeId], onDelete: Cascade)
-  targetNode   EpisodeNode @relation("TargetNode", fields: [targetNodeId, episodeId], references: [id, episodeId], onDelete: Cascade)
+  
+  // Explicit relations for DAG edges
+  sourceNode   EpisodeNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode   EpisodeNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
 
   @@index([episodeId])
   @@index([sourceNodeId])
   @@index([targetNodeId])
+}
+
+// ---------------------------------------------------------
+// READER STATE MANAGEMENT
+// ---------------------------------------------------------
+
+model ReadSession {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  readerId      String      @db.Uuid
+  episodeId     String      @db.Uuid
+  currentNodeId String      @db.Uuid
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  reader        Reader      @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  episode       Episode     @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  currentNode   EpisodeNode @relation(fields: [currentNodeId], references: [id], onDelete: Restrict)
+
+  @@unique([readerId, episodeId])
+  @@index([readerId])
 }
