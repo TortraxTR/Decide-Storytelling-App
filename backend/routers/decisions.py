@@ -88,14 +88,6 @@ async def get_decision(decision_id: str):
     return decision
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-async def create_decision(payload: DecisionCreate):
-    try:
-        return await db.decision.create(data=payload.model_dump(exclude_none=True))
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-
 @router.patch("/{decision_id}")
 async def update_decision(decision_id: str, payload: DecisionUpdate):
     decision = await db.decision.find_unique(where={"id": decision_id})
