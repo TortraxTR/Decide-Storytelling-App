@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from auth import get_current_user
 from config import get_jwt_secret
@@ -20,6 +21,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Decide Storytelling API", version="1.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",   # author-web (Vite dev server)
+        "http://localhost:3000",   # fallback dev port
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Public routes
 app.include_router(auth_router.router)
