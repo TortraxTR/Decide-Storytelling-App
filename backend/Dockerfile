@@ -29,6 +29,11 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /app /app
 
+# Fetch the Prisma query engine binary for this specific runtime environment.
+# prisma generate (in builder) caches the binary under /root/.cache which is not
+# carried across stages, so we fetch it fresh here — no Node.js required.
+RUN prisma py fetch
+
 # App Runner expects the container to listen on port 8080
 EXPOSE 8080
 
