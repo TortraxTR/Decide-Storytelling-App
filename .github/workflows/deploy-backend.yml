@@ -1,0 +1,120 @@
+name: Deploy Backend to AWS App Runner
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REPOSITORY: decide-backend-dev
+  APP_RUNNER_SERVICE: decide-backend-dev
+
+jobs:
+  deploy:
+    name: Build & Deploy to App Runner
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            ./backend
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image_uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to App Runner
+        env:
+          IMAGE_URI: ${{ steps.build-image.outputs.image_uri }}
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+          DB_SECRET_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:decide/dev/DATABASE_URL"
+          JWT_SECRET_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:decide/dev/JWT_SECRET"
+          INSTANCE_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/AppRunnerInstanceRole-decide-backend"
+          ACCESS_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/AppRunnerECRAccessRole"
+
+          # Build source configuration
+          jq -n \
+            --arg image_uri  "$IMAGE_URI" \
+            --arg db_arn     "$DB_SECRET_ARN" \
+            --arg jwt_arn    "$JWT_SECRET_ARN" \
+            --arg access_arn "$ACCESS_ROLE_ARN" \
+            '{
+              ImageRepository: {
+                ImageIdentifier: $image_uri,
+                ImageConfiguration: {
+                  Port: "8080",
+                  RuntimeEnvironmentSecrets: {
+                    DATABASE_URL: $db_arn,
+                    JWT_SECRET:   $jwt_arn
+                  }
+                },
+                ImageRepositoryType: "ECR"
+              },
+              AutoDeploymentsEnabled: false,
+              AuthenticationConfiguration: {
+                AccessRoleArn: $access_arn
+              }
+            }' > /tmp/source-config.json
+
+          # Build instance configuration
+          jq -n \
+            --arg role_arn "$INSTANCE_ROLE_ARN" \
+            '{
+              Cpu: "0.25 vCPU",
+              Memory: "0.5 GB",
+              InstanceRoleArn: $role_arn
+            }' > /tmp/instance-config.json
+
+          # Create or update the App Runner service
+          SERVICE_ARN=$(aws apprunner list-services \
+            --region "$AWS_REGION" \
+            --query "ServiceSummaryList[?ServiceName=='${APP_RUNNER_SERVICE}'].ServiceArn | [0]" \
+            --output text)
+
+          if [ -z "$SERVICE_ARN" ] || [ "$SERVICE_ARN" = "None" ]; then
+            echo "Creating new App Runner service: ${APP_RUNNER_SERVICE}"
+            aws apprunner create-service \
+              --region "$AWS_REGION" \
+              --service-name "${APP_RUNNER_SERVICE}" \
+              --source-configuration    file:///tmp/source-config.json \
+              --instance-configuration  file:///tmp/instance-config.json \
+              --health-check-configuration \
+                '{"Protocol":"HTTP","Path":"/health","Interval":10,"Timeout":5,"HealthyThreshold":2,"UnhealthyThreshold":3}'
+          else
+            echo "Updating existing App Runner service: ${SERVICE_ARN}"
+            aws apprunner update-service \
+              --region "$AWS_REGION" \
+              --service-arn "${SERVICE_ARN}" \
+              --source-configuration   file:///tmp/source-config.json \
+              --instance-configuration file:///tmp/instance-config.json
+          fi
+
+          echo ""
+          echo "Deployment initiated. Monitor at:"
+          echo "https://${AWS_REGION}.console.aws.amazon.com/apprunner/home?region=${AWS_REGION}"
