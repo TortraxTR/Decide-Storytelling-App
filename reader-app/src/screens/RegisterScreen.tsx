@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 
-export default function RegisterScreen({ navigation }: any) {
+export default function RegisterScreen({ route,navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const { role } = route.params || {};
 
   const handleRegister = () => {
     if (password !== confirmPassword) {
@@ -13,12 +14,16 @@ export default function RegisterScreen({ navigation }: any) {
     }
     // İleride buraya veritabanına kayıt olma kodu gelecek
     console.log('Registering:', email);
-    navigation.navigate('Story');
+    if (role === 'Author') {
+    navigation.navigate('AuthorDashboard'); // Yazar ise buraya
+  } else {
+    navigation.navigate('Story'); // Okuyucu ise hikayeye
+  }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Yeni Hesap Oluştur</Text>
+      <Text style={styles.title}>Create New Account</Text>
 
       <TextInput
         style={styles.input}
