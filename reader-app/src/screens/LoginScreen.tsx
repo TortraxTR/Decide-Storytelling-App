@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 
-export default function LoginScreen({ navigation }: any) {
+
+export default function LoginScreen({ route, navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { role } = route.params || {};
 
   const handleLogin = () => {
     // İleride buraya veritabanı (backend) kontrolü gelecek
     console.log('Sgining:', email);
-    // Şimdilik direkt hikayeye yönlendiriyoruz
-    navigation.navigate('Story');
+    
+    if (role === 'Author') {
+    navigation.navigate('AuthorDashboard'); // Yazar ise buraya
+  } else {
+    navigation.navigate('Story'); // Okuyucu ise hikayeye
+  }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tekrar Hoş Geldiniz</Text>
+      <Text style={styles.title}>Welcome back !</Text>
 
       <TextInput
         style={styles.input}
@@ -28,7 +34,7 @@ export default function LoginScreen({ navigation }: any) {
 
       <TextInput
         style={styles.input}
-        placeholder="Şifreniz"
+        placeholder="Password"
         placeholderTextColor="#888"
         value={password}
         onChangeText={setPassword}
@@ -36,7 +42,7 @@ export default function LoginScreen({ navigation }: any) {
       />
 
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Giriş Yap</Text>
+        <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
     </View>
   );

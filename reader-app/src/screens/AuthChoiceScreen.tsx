@@ -7,12 +7,12 @@ export default function AuthChoiceScreen({ route, navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Seçilen Rol: {role}</Text>
+      <Text style={styles.text}>Chosen Role: {role}</Text>
       <View style={styles.buttonContainer}>
-        <Button title="Login" onPress={() => navigation.navigate('Login')} />
+        <Button title="Login" onPress={() => navigation.navigate('Login', { role })} />
       </View>
       <View style={styles.buttonContainer}>
-        <Button title="Register" onPress={() => navigation.navigate('Register')} />
+        <Button title="Register" onPress={() => navigation.navigate('Register', { role })} />
       </View>
     </View> 
   );

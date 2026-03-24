@@ -4,7 +4,7 @@ import { View, Text, Button, StyleSheet } from 'react-native';
 export default function RoleScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Rolünüzü Seçin</Text>
+      <Text style={styles.text}>Choose Your Role</Text>
       <View style={styles.buttonContainer}>
         <Button title="Reader" onPress={() => navigation.navigate('AuthChoice', { role: 'Reader' })} />
       </View>

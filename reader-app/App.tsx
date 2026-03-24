@@ -7,6 +7,7 @@ import AuthChoiceScreen from './src/screens/AuthChoiceScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import StoryScreen from './src/screens/StoryScreen';
+import AuthorDashboardScreen from './src/screens/AuthorDashboardScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -21,10 +22,11 @@ export default function App() {
         }}
       >
         <Stack.Screen name="RoleSelection" component={RoleScreen} options={{ title: 'Decide' }} />
-        <Stack.Screen name="AuthChoice" component={AuthChoiceScreen} options={{ title: 'Hoş Geldiniz' }} />
-        <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Giriş Yap' }} />
-        <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Kayıt Ol' }} />
+        <Stack.Screen name="AuthChoice" component={AuthChoiceScreen} options={{ title: 'Welcome' }} />
+        <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Login' }} />
+        <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Register' }} />
         <Stack.Screen name="Story" component={StoryScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="AuthorDashboard" component={AuthorDashboardScreen} options={{ title: 'Author Panel' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
