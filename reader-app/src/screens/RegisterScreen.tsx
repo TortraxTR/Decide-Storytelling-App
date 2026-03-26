@@ -17,7 +17,7 @@ export default function RegisterScreen({ route,navigation }: any) {
     if (role === 'Author') {
     navigation.navigate('AuthorDashboard'); // Yazar ise buraya
   } else {
-    navigation.navigate('Story'); // Okuyucu ise hikayeye
+    navigation.navigate('Home'); // Okuyucu ise hikayeye
   }
   };
 
