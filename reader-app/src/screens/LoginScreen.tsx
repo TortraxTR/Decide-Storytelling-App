@@ -1,26 +1,39 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { login } from '../api';
 
 export default function LoginScreen({ route, navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const { role } = route.params || {};
 
-  const handleLogin = () => {
-    // İleride buraya veritabanı (backend) kontrolü gelecek
-    console.log('Sgining:', email);
-    
-    if (role === 'Author') {
-    navigation.navigate('AuthorDashboard'); // Yazar ise buraya
-  } else {
-    navigation.navigate('Home'); // Okuyucu ise hikayeye
-  }
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await login(email, password);
+      const token = data.access_token;
+
+      if (role === 'Author') {
+        navigation.navigate('AuthorDashboard', { token });
+      } else {
+        navigation.navigate('Home', { token });
+      }
+    } catch (error: any) {
+      Alert.alert('Login Failed', error.message || 'Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome back !</Text>
+      <Text style={styles.title}>Welcome back!</Text>
 
       <TextInput
         style={styles.input}
@@ -38,11 +51,19 @@ export default function LoginScreen({ route, navigation }: any) {
         placeholderTextColor="#888"
         value={password}
         onChangeText={setPassword}
-        secureTextEntry // Şifreyi yıldızlı gösterir
+        secureTextEntry
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Login</Text>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#121212" />
+        ) : (
+          <Text style={styles.buttonText}>Login</Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -78,6 +99,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+    height: 55,
+    justifyContent: 'center'
   },
   buttonText: {
     color: '#121212',

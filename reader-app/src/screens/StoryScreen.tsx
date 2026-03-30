@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -7,47 +7,35 @@ import {
   Image, 
   TouchableOpacity, 
   Dimensions, 
-  SafeAreaView 
+  SafeAreaView,
+  ActivityIndicator
 } from 'react-native';
+import { fetchStories, fetchStoryNodes } from '../api';
 
 const { width } = Dimensions.get('window');
 
-// test için (mock) veri
-const MOCK_STORY_DATA = [
-  { id: '1', type: 'image', url: 'https://picsum.photos/seed/baslangic1/600/800' },
-  { id: '2', type: 'image', url: 'https://picsum.photos/seed/baslangic2/600/800' },
-  { id: '3', type: 'image', url: 'https://picsum.photos/seed/baslangic3/600/800' },
-  { 
-    id: '4', 
-    type: 'decision', 
-    question: 'Which path should the character  choose ?', 
-    options: ['Dark Forest', 'Old Bridge'] 
-  },
-];
+export default function StoryScreen({ route }: any) {
+  const { storyId, title } = route.params || { storyId: '1', title: 'Story' };
+  const [storyNodes, setStoryNodes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default function StoryScreen() {
-  const [storyNodes, setStoryNodes] = useState(MOCK_STORY_DATA);
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      const nodes = await fetchStoryNodes(storyId);
 
-const handleDecision = (choice: string) => {
-    //  terminale yazdır 
+      // For now, let's display the start node and its immediate follow-up if it's a simple sequence
+      // Or just load all nodes if it's a simple list for testing
+      setStoryNodes(nodes);
+      setLoading(false);
+    };
+
+    loadInitialData();
+  }, [storyId]);
+
+  const handleDecision = (choice: string) => {
     console.log("Reader's choice:", choice);
-
-    // Seçime göre yüklenecek yeni hikaye panelleri ( Branching )
-    const newPanels = choice === 'Dark Forest' 
-      ? [
-          { id: Date.now().toString() + '-1', type: 'image', url: 'https://picsum.photos/seed/orman1/600/800' },
-          { id: Date.now().toString() + '-2', type: 'image', url: 'https://picsum.photos/seed/orman2/600/800' }
-        ]
-      : [
-          { id: Date.now().toString() + '-1', type: 'image', url: 'https://picsum.photos/seed/kopru1/600/800' },
-          { id: Date.now().toString() + '-2', type: 'image', url: 'https://picsum.photos/seed/kopru2/600/800' }
-        ];
-
-    // panelleri ekle
-    setStoryNodes(prevNodes => {
-      const nodesWithoutDecision = prevNodes.filter(node => node.type !== 'decision');
-      return [...nodesWithoutDecision, ...newPanels];
-    });
+    // Future: Fetch next nodes based on decision
   };
 
   const renderItem = ({ item }: { item: any }) => {
@@ -81,10 +69,18 @@ const handleDecision = (choice: string) => {
     return null;
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#BB86FC" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Decide - Test Story</Text>
+        <Text style={styles.headerTitle}>{title}</Text>
       </View>
 
       <FlatList
@@ -93,6 +89,7 @@ const handleDecision = (choice: string) => {
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        ListEmptyComponent={<Text style={{color: 'white', textAlign: 'center', marginTop: 20}}>No content found for this story.</Text>}
       />
     </SafeAreaView>
   );
@@ -102,6 +99,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#121212', 
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     padding: 15,

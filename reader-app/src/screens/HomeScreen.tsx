@@ -1,21 +1,39 @@
-import React from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { popularStories } from '../data/mockData';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { fetchStories } from '../api';
 
-export default function HomeScreen({ navigation }: any) {
-  
-  // Her bir hikaye kartının nasıl görüneceğini belirleyen fonksiyon
+export default function HomeScreen({ route, navigation }: any) {
+  const [stories, setStories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { token } = route.params || {};
+
+  useEffect(() => {
+    const loadStories = async () => {
+      const data = await fetchStories(token);
+      setStories(data);
+      setLoading(false);
+    };
+    loadStories();
+  }, [token]);
+
   const renderStoryCard = ({ item }: any) => (
     <TouchableOpacity 
       style={styles.card} 
-      // Kartın üstüne basınca Story ekranına yönlendiriyoruz
-      onPress={() => navigation.navigate('Story', { storyId: item.id, title: item.title })}
+      onPress={() => navigation.navigate('Story', { storyId: item.id, title: item.title, token })}
     >
       <Image source={{ uri: item.coverImage }} style={styles.coverImage} />
       <Text style={styles.storyTitle} numberOfLines={1}>{item.title}</Text>
       <Text style={styles.storyAuthor} numberOfLines={1}>{item.author}</Text>
     </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#BB86FC" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -24,22 +42,21 @@ export default function HomeScreen({ navigation }: any) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Popular Stories</Text>
         <FlatList
-          data={popularStories}
+          data={stories}
           renderItem={renderStoryCard}
           keyExtractor={(item) => item.id}
-          horizontal={true} // Yan yana kaydırma özelliği!
+          horizontal={true}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
         />
       </View>
-
-      {/* İleride buraya "Yeni Çıkanlar", "Senin İçin Seçtiklerimiz" gibi yeni List'ler ekleyebiliriz */}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#121212' },
+  centered: { justifyContent: 'center', alignItems: 'center' },
   headerTitle: { color: '#BB86FC', fontSize: 32, fontWeight: 'bold', margin: 20, marginTop: 40 },
   section: { marginBottom: 30 },
   sectionTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', marginLeft: 20, marginBottom: 15 },
