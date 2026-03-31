@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
+from typing import Optional
 from db import db
 
 router = APIRouter(prefix="/readers", tags=["Readers"])
@@ -10,8 +11,11 @@ class ReaderCreate(BaseModel):
 
 
 @router.get("/")
-async def list_readers():
-    return await db.reader.find_many(include={"user": True})
+async def list_readers(user_id: Optional[str] = None):
+    filters = {}
+    if user_id:
+        filters["userId"] = user_id
+    return await db.reader.find_many(where=filters, include={"user": True})
 
 
 @router.get("/{reader_id}")

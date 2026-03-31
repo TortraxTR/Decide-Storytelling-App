@@ -17,12 +17,12 @@ export default function LoginScreen({ route, navigation }: any) {
     setLoading(true);
     try {
       const data = await login(email, password);
-      const token = data.access_token;
+      const userId = data.user_id;
 
       if (role === 'Author') {
-        navigation.navigate('AuthorDashboard', { token });
+        navigation.navigate('AuthorDashboard', { userId });
       } else {
-        navigation.navigate('Home', { token });
+        navigation.navigate('Home', { userId });
       }
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'Invalid credentials');

@@ -5,21 +5,21 @@ import { fetchStories } from '../api';
 export default function HomeScreen({ route, navigation }: any) {
   const [stories, setStories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { token } = route.params || {};
+  const { userId } = route.params || {};
 
   useEffect(() => {
     const loadStories = async () => {
-      const data = await fetchStories(token);
+      const data = await fetchStories();
       setStories(data);
       setLoading(false);
     };
     loadStories();
-  }, [token]);
+  }, []);
 
   const renderStoryCard = ({ item }: any) => (
-    <TouchableOpacity 
-      style={styles.card} 
-      onPress={() => navigation.navigate('Story', { storyId: item.id, title: item.title, token })}
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => navigation.navigate('Story', { storyId: item.id, title: item.title, userId })}
     >
       <Image source={{ uri: item.coverImage }} style={styles.coverImage} />
       <Text style={styles.storyTitle} numberOfLines={1}>{item.title}</Text>
