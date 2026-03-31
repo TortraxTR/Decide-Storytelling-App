@@ -20,12 +20,13 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+class LoginResponse(BaseModel):
+    user_id: str
 
+class RegisterResponse(BaseModel):
+    user_id: str
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterRequest):
     existing = await db.user.find_unique(where={"email": payload.email})
     if existing:
@@ -39,12 +40,12 @@ async def register(payload: RegisterRequest):
         data["username"] = payload.username
 
     user = await db.user.create(data=data)
-    return TokenResponse(access_token=create_access_token(user.id))
+    return RegisterResponse(user_id=user.id)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=LoginResponse)
 async def login(payload: LoginRequest):
     user = await db.user.find_unique(where={"email": payload.email})
     if not user or not user.passwordHash or not verify_password(payload.password, user.passwordHash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    return TokenResponse(access_token=create_access_token(user.id))
+    return LoginResponse(access_token=create_access_token(user.id))
