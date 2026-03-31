@@ -3,9 +3,11 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr
 
+from auth import hash_password, verify_password
 from db import db
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -21,8 +23,10 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     user_id: str
 
+
 class RegisterResponse(BaseModel):
     user_id: str
+
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterRequest):
@@ -32,7 +36,7 @@ async def register(payload: RegisterRequest):
 
     data = {
         "email": payload.email,
-        "password": payload.password,
+        "passwordHash": hash_password(payload.password),
     }
     if payload.username:
         data["username"] = payload.username
@@ -44,6 +48,7 @@ async def register(payload: RegisterRequest):
 @router.post("/login", response_model=LoginResponse)
 async def login(payload: LoginRequest):
     user = await db.user.find_unique(where={"email": payload.email})
-    if not user or not user.passwordHash or payload.password != user.passwordHash:
+    if not user or not user.passwordHash or not verify_password(payload.password, user.passwordHash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
     return LoginResponse(user_id=user.id)
