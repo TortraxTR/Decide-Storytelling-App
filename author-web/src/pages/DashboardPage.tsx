@@ -1,13 +1,32 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ensureAuthorForUser } from "../api";
 import "./DashboardPage.css";
 
 export default function DashboardPage() {
     const navigate = useNavigate();
+    const [initError, setInitError] = useState("");
 
     function handleLogout() {
-        localStorage.removeItem("token");
+        localStorage.removeItem("user_id");
+        localStorage.removeItem("author_id");
         navigate("/");
     }
+
+    useEffect(() => {
+        const userId = localStorage.getItem("user_id");
+        const authorId = localStorage.getItem("author_id");
+        if (!userId || authorId) return;
+
+        (async () => {
+            try {
+                const res = await ensureAuthorForUser(userId);
+                localStorage.setItem("author_id", res.authorId);
+            } catch (e) {
+                setInitError(e instanceof Error ? e.message : "Failed to initialize author profile");
+            }
+        })();
+    }, []);
 
     return (
         <div className="dashboard-wrapper">
@@ -28,24 +47,27 @@ export default function DashboardPage() {
                         You're successfully signed in. This is where you'll create and
                         manage your interactive stories, episodes, and branching decisions.
                     </p>
+                    {initError && <div className="form-error">{initError}</div>}
                     <div className="feature-grid">
-                        <div className="feature-item">
+                        <button className="feature-item" onClick={() => navigate("/stories")}>
                             <span className="feature-icon">📝</span>
                             <h3>Stories</h3>
                             <p>Create and manage your interactive narratives</p>
-                        </div>
-                        <div className="feature-item">
+                        </button>
+                        <button className="feature-item" onClick={() => navigate("/pick-story/episodes")}>
                             <span className="feature-icon">🎬</span>
                             <h3>Episodes</h3>
-                            <p>Build sequential chapters for your stories</p>
-                        </div>
-                        <div className="feature-item">
+                            <p>Create episodes after selecting a story</p>
+                        </button>
+                        <button className="feature-item" onClick={() => navigate("/pick-story/decisions")}>
                             <span className="feature-icon">🔀</span>
                             <h3>Decisions</h3>
-                            <p>Design branching paths and story choices</p>
-                        </div>
+                            <p>Create decisions after creating nodes in an episode</p>
+                        </button>
                     </div>
-                    <p className="coming-soon">Full dashboard coming soon…</p>
+                    <p className="coming-soon">
+                        Tip: Start with <strong>Stories</strong>. Episodes and Decisions are created from inside a specific Story/Episode.
+                    </p>
                 </div>
             </main>
         </div>

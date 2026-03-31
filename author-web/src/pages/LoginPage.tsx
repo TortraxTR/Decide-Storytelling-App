@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { login, register } from "../api";
 import "./LoginPage.css";
@@ -13,6 +13,13 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
+    useEffect(() => {
+        // If already authenticated, skip login screen.
+        if (localStorage.getItem("user_id")) {
+            navigate("/dashboard", { replace: true });
+        }
+    }, [navigate]);
+
     async function handleSubmit(e: FormEvent) {
         e.preventDefault();
         setError("");
@@ -23,8 +30,10 @@ export default function LoginPage() {
                 ? await register(email, password, username)
                 : await login(email, password);
 
-            localStorage.setItem("token", res.access_token);
-            navigate("/dashboard");
+            localStorage.setItem("user_id", res.user_id);
+            // author_id is initialized lazily on the dashboard (avoids CORS redirect/preflight issues here).
+            localStorage.removeItem("author_id");
+            navigate("/dashboard", { replace: true });
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Something went wrong");
         } finally {

@@ -3,6 +3,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 _jwt_secret: str | None = None
+_s3_client = None
 
 
 def get_jwt_secret() -> str:
@@ -34,3 +35,23 @@ def get_jwt_secret() -> str:
         )
 
     return _jwt_secret
+
+
+def get_aws_region() -> str:
+    return os.getenv("AWS_REGION", "eu-central-1")
+
+
+def get_s3_bucket() -> str:
+    bucket = os.getenv("S3_BUCKET_NAME", "decide-media-dev")
+    if not bucket:
+        raise RuntimeError("S3_BUCKET_NAME is not set")
+    return bucket
+
+
+def get_s3_client():
+    global _s3_client
+    if _s3_client is not None:
+        return _s3_client
+
+    _s3_client = boto3.client("s3", region_name=get_aws_region())
+    return _s3_client

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from db import db
-from routers import authors, decisions, episodes, nodes, readers, sessions, stories, users
+from routers import authors, decisions, episodes, nodes, readers, sessions, stories, users, uploads
 from routers import auth as auth_router
 
 @asynccontextmanager
@@ -34,6 +34,7 @@ app.include_router(episodes.router)
 app.include_router(nodes.router)
 app.include_router(decisions.router)
 app.include_router(sessions.router)
+app.include_router(uploads.router)
 
 
 @app.get("/health", tags=["Health"])

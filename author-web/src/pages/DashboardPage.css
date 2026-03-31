@@ -85,6 +85,9 @@
     border-radius: var(--radius);
     padding: 24px 16px;
     transition: border-color 0.2s, transform 0.2s;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
 }
 
 .feature-item:hover {
