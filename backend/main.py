@@ -10,7 +10,6 @@ from routers import auth as auth_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    get_jwt_secret()  # load and cache on startup; raises early if misconfigured
     await db.connect()
     yield
     await db.disconnect()
