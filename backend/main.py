@@ -1,16 +1,12 @@
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from auth import get_current_user
 from config import get_jwt_secret
 from db import db
 from routers import authors, decisions, episodes, nodes, readers, sessions, stories, users
 from routers import auth as auth_router
-
-_protected = {"dependencies": [Depends(get_current_user)]}
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,16 +28,14 @@ app.add_middleware(
 
 # Public routes
 app.include_router(auth_router.router)
-
-# Protected routes
-app.include_router(users.router, **_protected)
-app.include_router(authors.router, **_protected)
-app.include_router(readers.router, **_protected)
-app.include_router(stories.router, **_protected)
-app.include_router(episodes.router, **_protected)
-app.include_router(nodes.router, **_protected)
-app.include_router(decisions.router, **_protected)
-app.include_router(sessions.router, **_protected)
+app.include_router(users.router)
+app.include_router(authors.router)
+app.include_router(readers.router)
+app.include_router(stories.router)
+app.include_router(episodes.router)
+app.include_router(nodes.router)
+app.include_router(decisions.router)
+app.include_router(sessions.router)
 
 
 @app.get("/health", tags=["Health"])
