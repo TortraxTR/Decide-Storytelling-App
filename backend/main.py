@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import get_jwt_secret
 from db import db
 from routers import authors, decisions, episodes, nodes, readers, sessions, stories, users
 from routers import auth as auth_router
