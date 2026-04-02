@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Backend API",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd backend && uvicorn main:app --reload --port 8000"],
+      "port": 8000
+    },
+    {
+      "name": "Author Web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd author-web && npm run dev"],
+      "port": 5173
+    },
+    {
+      "name": "Reader App (Metro)",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd reader-app && npm start"],
+      "port": 8081
+    }
+  ]
+}
