@@ -129,38 +129,138 @@ textarea {
 
 .story-item {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.02);
 }
 
+/* Thumbnail column */
+.story-thumb-col {
+  flex-shrink: 0;
+}
+
+.story-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  display: block;
+  transition: opacity 0.15s;
+}
+
+.story-thumb:hover {
+  opacity: 0.8;
+}
+
+.story-thumb-placeholder {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.story-thumb-placeholder:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(108, 111, 239, 0.08);
+}
+
+/* Meta */
+.story-meta {
+  flex: 1;
+  min-width: 0;
+}
+
 .story-title {
   font-weight: 600;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.story-desc {
+  font-size: 12px;
   margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .story-sub {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
 }
 
+.id-chip {
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+}
+
+/* Status pills */
 .pill {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
   color: var(--text-secondary);
+  font-weight: 500;
 }
 
+.pill-draft {
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #94a3b8;
+}
+
+.pill-published {
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.pill-archived {
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.06);
+}
+
+/* Story action buttons */
 .story-buttons {
   display: flex;
-  gap: 10px;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.btn-status {
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  border: 1px solid var(--accent);
+  background: rgba(108, 111, 239, 0.1);
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-status:hover:not(:disabled) {
+  background: rgba(108, 111, 239, 0.2);
 }
 
 .btn-secondary,

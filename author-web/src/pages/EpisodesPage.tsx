@@ -124,11 +124,17 @@ export default function EpisodesPage() {
                                         <div className="muted">ID: {e.id}</div>
                                     </div>
                                     <div className="list-buttons">
+                                        <button
+                                            className="btn-primary"
+                                            onClick={() => navigate(`/episodes/${e.id}/graph`)}
+                                        >
+                                            🔀 Graph Editor
+                                        </button>
                                         <button className="btn-secondary" onClick={() => navigate(`/episodes/${e.id}/nodes`)}>
-                                            Nodes →
+                                            Nodes
                                         </button>
                                         <button className="btn-secondary" onClick={() => navigate(`/episodes/${e.id}/decisions`)}>
-                                            Decisions →
+                                            Decisions
                                         </button>
                                         <button className="btn-danger" onClick={() => handleDelete(e.id)}>
                                             Delete
