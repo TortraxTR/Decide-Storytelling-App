@@ -1,15 +1,40 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createStory, deleteStory, listStories, type PublishStatus, type StoryDto } from "../api";
+import {
+    createStory,
+    deleteStory,
+    listStories,
+    updateStory,
+    presignStoryUpload,
+    type PublishStatus,
+    type StoryDto,
+} from "../api";
 import "./StoriesPage.css";
 
 const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE ?? "https://decide-media-dev.s3.eu-central-1.amazonaws.com";
+
+function thumbUrl(key: string | null | undefined) {
+    if (!key) return null;
+    return `${S3_PUBLIC_BASE.replace(/\/+$/, "")}/${key.replace(/^\/+/, "")}`;
+}
 
 function requireAuthorId(): string {
     const authorId = localStorage.getItem("author_id");
     if (!authorId) throw new Error("Missing author_id. Please sign in again.");
     return authorId;
 }
+
+const STATUS_CYCLE: PublishStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
+const STATUS_LABEL: Record<PublishStatus, string> = {
+    DRAFT: "Draft",
+    PUBLISHED: "Published",
+    ARCHIVED: "Archived",
+};
+const STATUS_NEXT: Record<PublishStatus, string> = {
+    DRAFT: "Publish →",
+    PUBLISHED: "Archive →",
+    ARCHIVED: "→ Draft",
+};
 
 export default function StoriesPage() {
     const navigate = useNavigate();
@@ -21,9 +46,15 @@ export default function StoriesPage() {
 
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-    const [thumbnail, setThumbnail] = useState("");
-    const [status, setStatus] = useState<PublishStatus>("DRAFT");
     const [saving, setSaving] = useState(false);
+
+    // Per-story upload state: storyId → "uploading" | "done" | undefined
+    const [uploadingId, setUploadingId] = useState<string | null>(null);
+    // Per-story status-saving
+    const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
+
+    // Hidden file inputs keyed by storyId, stored in a map ref
+    const fileInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
     async function refresh() {
         setError("");
@@ -52,13 +83,10 @@ export default function StoriesPage() {
                 authorId,
                 title: title.trim(),
                 description: description.trim() || undefined,
-                thumbnail: thumbnail.trim() || undefined,
-                status,
+                status: "DRAFT",
             });
             setTitle("");
             setDescription("");
-            setThumbnail("");
-            setStatus("DRAFT");
             await refresh();
         } catch (e) {
             setError(e instanceof Error ? e.message : "Failed to create story");
@@ -77,28 +105,45 @@ export default function StoriesPage() {
         }
     }
 
-    function normalizeThumbnailInput(raw: string) {
-        const value = raw.trim();
-        if (!value) return "";
-
-        // Accept a pasted full S3 URL and convert to assetKey.
-        if (value.startsWith("http://") || value.startsWith("https://")) {
-            try {
-                const url = new URL(value);
-                const base = new URL(S3_PUBLIC_BASE);
-                if (url.host === base.host) {
-                    return url.pathname.replace(/^\/+/, "");
-                }
-            } catch {
-                // ignore parse errors; keep raw
-            }
+    async function handleStatusCycle(story: StoryDto) {
+        const currentIdx = STATUS_CYCLE.indexOf(story.status);
+        const nextStatus = STATUS_CYCLE[(currentIdx + 1) % STATUS_CYCLE.length];
+        setStatusSavingId(story.id);
+        setError("");
+        try {
+            const updated = await updateStory(story.id, { status: nextStatus });
+            setStories((prev) => prev.map((s) => (s.id === story.id ? updated : s)));
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to update status");
+        } finally {
+            setStatusSavingId(null);
         }
-        return value.replace(/^\/+/, "");
     }
 
-    const thumbnailPreviewUrl = thumbnail
-        ? `${S3_PUBLIC_BASE.replace(/\/+$/, "")}/${thumbnail.replace(/^\/+/, "")}`
-        : "";
+    async function handleThumbnailFile(storyId: string, file: File) {
+        setUploadingId(storyId);
+        setError("");
+        try {
+            const { key, url } = await presignStoryUpload({
+                storyId,
+                filename: file.name,
+                contentType: file.type || undefined,
+            });
+
+            await fetch(url, {
+                method: "PUT",
+                body: file,
+                headers: { "Content-Type": file.type || "application/octet-stream" },
+            });
+
+            const updated = await updateStory(storyId, { thumbnail: key });
+            setStories((prev) => prev.map((s) => (s.id === storyId ? updated : s)));
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Thumbnail upload failed");
+        } finally {
+            setUploadingId(null);
+        }
+    }
 
     return (
         <div className="stories-page">
@@ -130,35 +175,10 @@ export default function StoriesPage() {
                             Title
                             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="My interactive story" />
                         </label>
-                        <label>
-                            Status
-                            <select value={status} onChange={(e) => setStatus(e.target.value as PublishStatus)}>
-                                <option value="DRAFT">DRAFT</option>
-                                <option value="PUBLISHED">PUBLISHED</option>
-                                <option value="ARCHIVED">ARCHIVED</option>
-                            </select>
-                        </label>
                     </div>
                     <label>
                         Description
                         <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short summary…" />
-                    </label>
-                    <label>
-                        Thumbnail (optional)
-                        <input
-                            value={thumbnail}
-                            onChange={(e) => setThumbnail(normalizeThumbnailInput(e.target.value))}
-                            placeholder="Paste full S3 URL or type an assetKey (e.g. thumbnails/story.png)"
-                        />
-                        <span className="helper">
-                            You can paste an S3 link like <code>{S3_PUBLIC_BASE}/thumbnails/story.png</code> — it will auto-extract
-                            <code>thumbnails/story.png</code>.
-                        </span>
-                        {thumbnailPreviewUrl ? (
-                            <span className="helper">
-                                Preview: <a href={thumbnailPreviewUrl} target="_blank" rel="noreferrer">{thumbnailPreviewUrl}</a>
-                            </span>
-                        ) : null}
                     </label>
                     <div className="form-actions">
                         <button className="btn-primary" onClick={handleCreate} disabled={saving || !title.trim()}>
@@ -180,25 +200,83 @@ export default function StoriesPage() {
                         <div className="muted">No stories yet.</div>
                     ) : (
                         <div className="story-list">
-                            {stories.map((s) => (
-                                <div className="story-item" key={s.id}>
-                                    <div className="story-meta">
-                                        <div className="story-title">{s.title}</div>
-                                        <div className="story-sub">
-                                            <span className="pill">{s.status}</span>
-                                            <span className="muted">ID: {s.id}</span>
+                            {stories.map((s) => {
+                                const imgUrl = thumbUrl(s.thumbnail);
+                                const isUploading = uploadingId === s.id;
+                                const isSavingStatus = statusSavingId === s.id;
+
+                                return (
+                                    <div className="story-item" key={s.id}>
+                                        {/* Thumbnail */}
+                                        <div className="story-thumb-col">
+                                            {imgUrl ? (
+                                                <img
+                                                    className="story-thumb"
+                                                    src={imgUrl}
+                                                    alt={s.title}
+                                                    onClick={() => fileInputRefs.current.get(s.id)?.click()}
+                                                    title="Click to change thumbnail"
+                                                />
+                                            ) : (
+                                                <button
+                                                    className="story-thumb-placeholder"
+                                                    onClick={() => fileInputRefs.current.get(s.id)?.click()}
+                                                    disabled={isUploading}
+                                                    title="Upload thumbnail"
+                                                >
+                                                    {isUploading ? "⏳" : "🖼️"}
+                                                </button>
+                                            )}
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                style={{ display: "none" }}
+                                                ref={(el) => {
+                                                    if (el) fileInputRefs.current.set(s.id, el);
+                                                    else fileInputRefs.current.delete(s.id);
+                                                }}
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) handleThumbnailFile(s.id, file);
+                                                    e.target.value = "";
+                                                }}
+                                            />
+                                        </div>
+
+                                        {/* Meta */}
+                                        <div className="story-meta">
+                                            <div className="story-title">{s.title}</div>
+                                            {s.description && (
+                                                <div className="story-desc muted">{s.description}</div>
+                                            )}
+                                            <div className="story-sub">
+                                                <span className={`pill pill-${s.status.toLowerCase()}`}>
+                                                    {STATUS_LABEL[s.status]}
+                                                </span>
+                                                <span className="muted id-chip">ID: {s.id}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="story-buttons">
+                                            <button
+                                                className="btn-status"
+                                                onClick={() => handleStatusCycle(s)}
+                                                disabled={isSavingStatus}
+                                                title={`Click to cycle status`}
+                                            >
+                                                {isSavingStatus ? "…" : STATUS_NEXT[s.status]}
+                                            </button>
+                                            <button className="btn-secondary" onClick={() => navigate(`/stories/${s.id}/episodes`)}>
+                                                Episodes →
+                                            </button>
+                                            <button className="btn-danger" onClick={() => handleDelete(s.id)}>
+                                                Delete
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className="story-buttons">
-                                        <button className="btn-secondary" onClick={() => navigate(`/stories/${s.id}/episodes`)}>
-                                            Episodes →
-                                        </button>
-                                        <button className="btn-danger" onClick={() => handleDelete(s.id)}>
-                                            Delete
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </section>
@@ -206,4 +284,3 @@ export default function StoriesPage() {
         </div>
     );
 }
-

@@ -7,6 +7,7 @@ import NodesPage from "./pages/NodesPage";
 import DecisionsPage from "./pages/DecisionsPage";
 import PickStoryPage from "./pages/PickStoryPage";
 import PickEpisodePage from "./pages/PickEpisodePage";
+import EpisodeGraphPage from "./pages/EpisodeGraphPage";
 
 function isAuthed() {
   // Only require user_id for initial navigation. author_id can be created lazily.
@@ -23,6 +24,7 @@ function App() {
         <Route path="/stories/:storyId/episodes" element={isAuthed() ? <EpisodesPage /> : <Navigate to="/" replace />} />
         <Route path="/episodes/:episodeId/nodes" element={isAuthed() ? <NodesPage /> : <Navigate to="/" replace />} />
         <Route path="/episodes/:episodeId/decisions" element={isAuthed() ? <DecisionsPage /> : <Navigate to="/" replace />} />
+        <Route path="/episodes/:episodeId/graph" element={isAuthed() ? <EpisodeGraphPage /> : <Navigate to="/" replace />} />
         <Route path="/pick-story/:flow" element={isAuthed() ? <PickStoryPage /> : <Navigate to="/" replace />} />
         <Route path="/pick-episode/:storyId/:flow" element={isAuthed() ? <PickEpisodePage /> : <Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />

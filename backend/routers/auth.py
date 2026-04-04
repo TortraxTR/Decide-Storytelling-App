@@ -52,3 +52,24 @@ async def login(payload: LoginRequest):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     return LoginResponse(user_id=user.id)
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    new_password: str
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_password(payload: ResetPasswordRequest):
+    user = await db.user.find_unique(where={"email": payload.email})
+    if not user:
+        # Return 204 regardless to prevent email enumeration
+        return
+
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Password must be at least 6 characters")
+
+    await db.user.update(
+        where={"id": user.id},
+        data={"passwordHash": hash_password(payload.new_password)},
+    )
