@@ -13,6 +13,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     username: Optional[str] = None
+    role: str
 
 
 class LoginRequest(BaseModel):
