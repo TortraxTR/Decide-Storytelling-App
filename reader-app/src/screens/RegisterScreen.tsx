@@ -9,27 +9,20 @@ export default function RegisterScreen({ route,navigation }: any) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const { role } = route.params || {};
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (password !== confirmPassword) {
       Alert.alert('Passwords does not match');
       return;
     }
 
     try {
-      register(email, password, username)
-        .then((data) => {
-          const userId = data.user_id;
-            if (role === 'Author') {
-              navigation.navigate('AuthorDashboard', { userId });
-            } else {
-              navigation.navigate('Home', { userId });
-            }
-        })
+      const data = await register(email, password, username);
+      const userId = data.user_id;
+      navigation.navigate(role === 'Author' ? 'AuthorDashboard' : 'Home', { userId });
+    } catch (error: any) {
+      Alert.alert('Registration Failed', error?.message ?? 'Unable to register');
     }
-    catch (error: any) {
-      Alert.alert('Registration Failed', error.message || 'Unable to register');
-    }
-  }
+  };
   
   return (
     <View style={styles.container}>

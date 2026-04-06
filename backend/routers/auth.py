@@ -30,10 +30,12 @@ class RegisterResponse(BaseModel):
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterRequest):
-    existing = await db.user.find_unique(where={"email": payload.email})
-    if existing:
+    email_existing = await db.user.find_unique(where={"email": payload.email})
+    if email_existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-
+    username_existing = await db.user.find_unique(where={"username": payload.username}) if payload.username else None
+    if username_existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
     data = {
         "email": payload.email,
         "passwordHash": hash_password(payload.password),
