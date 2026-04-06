@@ -25,10 +25,6 @@ export const register = async (email: string, password: string, username?: strin
   const isJson = contentType.includes('application/json');
 
   const body = isJson ? await response.json().catch(() => null) : await response.text();
-
-  console.log('REGISTER status:', response.status);
-  console.log('REGISTER content-type:', contentType);
-  console.log('REGISTER body (first 300):', body.slice(0, 300));
   
   if (!response.ok) {
     const detail =
