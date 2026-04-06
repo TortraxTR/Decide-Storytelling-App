@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { register } from '../api';
 
 export default function RegisterScreen({ route,navigation }: any) {
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -12,18 +14,36 @@ export default function RegisterScreen({ route,navigation }: any) {
       Alert.alert('Passwords does not match');
       return;
     }
-    // İleride buraya veritabanına kayıt olma kodu gelecek
-    console.log('Registering:', email);
-    if (role === 'Author') {
-    navigation.navigate('AuthorDashboard'); // Yazar ise buraya
-  } else {
-    navigation.navigate('Home'); // Okuyucu ise hikayeye
-  }
-  };
 
+    try {
+      register(email, password, username)
+        .then((data) => {
+          const userId = data.user_id;
+            if (role === 'Author') {
+              navigation.navigate('AuthorDashboard', { userId });
+            } else {
+              navigation.navigate('Home', { userId });
+            }
+        })
+    }
+    catch (error: any) {
+      Alert.alert('Registration Failed', error.message || 'Unable to register');
+    }
+  }
+  
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Create New Account</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Username"
+        placeholderTextColor="#888"
+        value={username}
+        onChangeText={setUsername}
+        keyboardType="default"
+        autoCapitalize="none"
+      />
 
       <TextInput
         style={styles.input}

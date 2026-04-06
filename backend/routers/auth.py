@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr
 
-from auth import hash_password, verify_password
+from ..auth import hash_password, verify_password
 from db import db
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
