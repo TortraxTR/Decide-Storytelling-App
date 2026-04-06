@@ -1,36 +1,66 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,700;1,6..72,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap');
 
 :root {
-  --bg-primary: #0f0f14;
-  --bg-secondary: #1a1a24;
-  --bg-card: #22222e;
-  --bg-input: #2a2a38;
-  --accent: #a78bfa;
-  --accent-hover: #c4b5fd;
-  --accent-glow: rgba(167, 139, 250, 0.25);
-  --text-primary: #f1f1f4;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
-  --border: #333345;
-  --error: #f87171;
+  /* ── Surface hierarchy ────────────────────────────────────────────────── */
+  --surface-lowest:   #060e20;
+  --surface:          #0b1326;
+  --surface-low:      #131b2e;
+  --surface-container:#171f33;
+  --surface-high:     #222a3d;
+  --surface-highest:  #2d3449;
+  --surface-bright:   #31394d;
+
+  /* ── Accent palette ───────────────────────────────────────────────────── */
+  --primary:              #c0c1ff;
+  --primary-dim:          #8083ff;
+  --secondary:            #ffb2bc;
+  --secondary-container:  #930a37;
+  --tertiary:             #d0bcff;
+
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --on-surface:         #dae2fd;
+  --on-surface-variant: #c7c4d7;
+  --outline:            #908fa0;
+  --outline-variant:    #464554;
+
+  /* ── Glow & semantic ──────────────────────────────────────────────────── */
+  --error:   #ffb4ab;
   --success: #34d399;
+  --accent-glow: rgba(192, 193, 255, 0.15);
+
+  /* ── Legacy aliases ───────────────────────────────────────────────────── */
+  --bg-primary:   var(--surface);
+  --bg-secondary: var(--surface-low);
+  --bg-card:      var(--surface-container);
+  --bg-input:     var(--surface-lowest);
+  --accent:       var(--primary);
+  --accent-hover: var(--primary-dim);
+  --text-primary:   var(--on-surface);
+  --text-secondary: var(--on-surface-variant);
+  --text-muted:     var(--outline);
+  --border: rgba(70, 69, 84, 0.2);
   --radius: 12px;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  background: var(--surface);
+  color: var(--on-surface);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(192, 193, 255, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 90% 110%, rgba(255, 178, 188, 0.06) 0%, transparent 60%);
 }
 
-#root {
-  min-height: 100vh;
+#root { min-height: 100vh; }
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-size: 20px;
+  line-height: 1;
+  vertical-align: middle;
 }

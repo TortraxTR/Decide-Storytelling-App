@@ -164,6 +164,10 @@ export async function deleteStory(storyId: string): Promise<void> {
     return request<void>(`/stories/${storyId}`, { method: "DELETE" });
 }
 
+export async function getStory(storyId: string): Promise<StoryDto> {
+    return request<StoryDto>(`/stories/${storyId}`);
+}
+
 // ---------------------------------------------------------------------------
 // Episodes
 // ---------------------------------------------------------------------------

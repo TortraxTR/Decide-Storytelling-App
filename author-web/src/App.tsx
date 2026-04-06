@@ -1,17 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
-import DashboardPage from "./pages/DashboardPage";
+import AppShell from "./components/AppShell";
 import StoriesPage from "./pages/StoriesPage";
 import EpisodesPage from "./pages/EpisodesPage";
-import NodesPage from "./pages/NodesPage";
-import DecisionsPage from "./pages/DecisionsPage";
-import PickStoryPage from "./pages/PickStoryPage";
-import PickEpisodePage from "./pages/PickEpisodePage";
 import EpisodeGraphPage from "./pages/EpisodeGraphPage";
 
 function isAuthed() {
-  // Only require user_id for initial navigation. author_id can be created lazily.
   return Boolean(localStorage.getItem("user_id"));
+}
+
+function Protected({ children }: { children: React.ReactNode }) {
+  return isAuthed() ? <>{children}</> : <Navigate to="/" replace />;
 }
 
 function App() {
@@ -19,14 +18,21 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginPage />} />
-        <Route path="/dashboard" element={isAuthed() ? <DashboardPage /> : <Navigate to="/" replace />} />
-        <Route path="/stories" element={isAuthed() ? <StoriesPage /> : <Navigate to="/" replace />} />
-        <Route path="/stories/:storyId/episodes" element={isAuthed() ? <EpisodesPage /> : <Navigate to="/" replace />} />
-        <Route path="/episodes/:episodeId/nodes" element={isAuthed() ? <NodesPage /> : <Navigate to="/" replace />} />
-        <Route path="/episodes/:episodeId/decisions" element={isAuthed() ? <DecisionsPage /> : <Navigate to="/" replace />} />
-        <Route path="/episodes/:episodeId/graph" element={isAuthed() ? <EpisodeGraphPage /> : <Navigate to="/" replace />} />
-        <Route path="/pick-story/:flow" element={isAuthed() ? <PickStoryPage /> : <Navigate to="/" replace />} />
-        <Route path="/pick-episode/:storyId/:flow" element={isAuthed() ? <PickEpisodePage /> : <Navigate to="/" replace />} />
+
+        {/* Authenticated routes with persistent sidebar shell */}
+        <Route element={<Protected><AppShell /></Protected>}>
+          <Route path="/stories" element={<StoriesPage />} />
+          <Route path="/stories/:storyId/episodes" element={<EpisodesPage />} />
+        </Route>
+
+        {/* Graph editor has its own full-screen layout */}
+        <Route
+          path="/episodes/:episodeId/graph"
+          element={isAuthed() ? <EpisodeGraphPage /> : <Navigate to="/" replace />}
+        />
+
+        {/* Redirects */}
+        <Route path="/dashboard" element={<Navigate to="/stories" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

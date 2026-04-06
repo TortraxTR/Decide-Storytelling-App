@@ -19,7 +19,7 @@ export default function LoginPage() {
 
     useEffect(() => {
         if (localStorage.getItem("user_id")) {
-            navigate("/dashboard", { replace: true });
+            navigate("/stories", { replace: true });
         }
     }, [navigate]);
 
@@ -48,7 +48,7 @@ export default function LoginPage() {
 
                 localStorage.setItem("user_id", res.user_id);
                 localStorage.removeItem("author_id");
-                navigate("/dashboard", { replace: true });
+                navigate("/stories", { replace: true });
             }
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Something went wrong");
