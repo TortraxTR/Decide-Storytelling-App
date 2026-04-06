@@ -14,11 +14,11 @@ export const login = async (email: string, password: string) => {
   return data as { user_id: string };
 };
 
-export const register = async (email: string, password: string, username?: string) => {
+export const register = async (email: string, password: string, username: string, role: string) => {
   const response = await fetch(`${BASE_URL}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, username }),
+    body: JSON.stringify({ email, password, username, role }),
   });
 
   const contentType = response.headers.get('content-type') || '';

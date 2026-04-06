@@ -39,11 +39,15 @@ async def register(payload: RegisterRequest):
     data = {
         "email": payload.email,
         "passwordHash": hash_password(payload.password),
+        "username": payload.username,
     }
-    if payload.username:
-        data["username"] = payload.username
-
+    
     user = await db.user.create(data=data)
+    if payload.role == "Author":
+        await db.author.create(data={"userId": user.id})
+    else:
+        await db.reader.create(data={"userId": user.id})
+    
     return RegisterResponse(user_id=user.id)
 
 

@@ -16,7 +16,7 @@ export default function RegisterScreen({ route,navigation }: any) {
     }
 
     try {
-      const data = await register(email, password, username);
+      const data = await register(email, password, username, role);
       const userId = data.user_id;
       navigation.navigate(role === 'Author' ? 'AuthorDashboard' : 'Home', { userId });
     } catch (error: any) {
