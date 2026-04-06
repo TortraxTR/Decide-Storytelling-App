@@ -20,9 +20,24 @@ export const register = async (email: string, password: string, username?: strin
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, username }),
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.detail || 'Registration failed');
-  return data as { user_id: string };
+
+  const contentType = response.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+
+  const body = isJson ? await response.json().catch(() => null) : await response.text();
+
+  console.log('REGISTER status:', response.status);
+  console.log('REGISTER content-type:', contentType);
+  console.log('REGISTER body (first 300):', body.slice(0, 300));
+  
+  if (!response.ok) {
+    const detail =
+      typeof body === 'object' && body && 'detail' in body ? (body as any).detail : undefined;
+
+    throw new Error(detail || (typeof body === 'string' && body) || `Registration failed (${response.status})`);
+  }
+
+  return body as { user_id: string };
 };
 
 // ─── Readers ─────────────────────────────────────────────────────────────────
