@@ -45,6 +45,8 @@ export interface EpisodeNodeDto {
     assetKey: string;
     assetWidth: number | null;
     assetHeight: number | null;
+    canvasX?: number | null;
+    canvasY?: number | null;
     isStart: boolean;
     isEnd: boolean;
 }
@@ -55,6 +57,15 @@ export interface DecisionDto {
     sourceNodeId: string;
     targetNodeId: string;
     text: string | null;
+}
+
+export interface ReadSessionDto {
+    id: string;
+    readerId: string;
+    episodeId: string;
+    currentNodeId: string;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface PresignResponse {
@@ -101,7 +112,12 @@ export async function register(
 ): Promise<AuthResponse> {
     return request<AuthResponse>("/auth/register", {
         method: "POST",
-        body: JSON.stringify({ email, password, username: username || undefined }),
+        body: JSON.stringify({
+            email,
+            password,
+            username: username || undefined,
+            role: "Author",
+        }),
     });
 }
 
@@ -222,6 +238,8 @@ export async function createNode(payload: {
     assetKey: string;
     assetWidth?: number;
     assetHeight?: number;
+    canvasX?: number;
+    canvasY?: number;
     isStart?: boolean;
     isEnd?: boolean;
 }): Promise<EpisodeNodeDto> {
@@ -237,6 +255,8 @@ export async function updateNode(
         assetKey: string;
         assetWidth: number;
         assetHeight: number;
+        canvasX: number;
+        canvasY: number;
         isStart: boolean;
         isEnd: boolean;
     }>
@@ -314,4 +334,17 @@ export async function updateDecision(
 
 export async function deleteDecision(decisionId: string): Promise<void> {
     return request<void>(`/decisions/${decisionId}`, { method: "DELETE" });
+}
+
+// ---------------------------------------------------------------------------
+// Read sessions
+// ---------------------------------------------------------------------------
+
+export async function listSessions(episodeId?: string): Promise<ReadSessionDto[]> {
+    const params = episodeId ? `?episode_id=${episodeId}` : "";
+    return request<ReadSessionDto[]>(`/sessions/${params}`);
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+    return request<void>(`/sessions/${sessionId}`, { method: "DELETE" });
 }

@@ -1,275 +1,238 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-    getStory,
-    createEpisode,
-    listEpisodes,
-    updateEpisode,
-    deleteEpisode,
-    listNodes,
-    listDecisions,
-    type StoryDto,
-    type EpisodeDto,
-    type PublishStatus,
+  createEpisode,
+  deleteEpisode,
+  getStory,
+  listDecisions,
+  listEpisodes,
+  listNodes,
+  updateEpisode,
+  type EpisodeDto,
+  type PublishStatus,
+  type StoryDto,
 } from "../api";
 import "./EpisodesPage.css";
 
 const STATUS_CYCLE: PublishStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 const STATUS_LABEL: Record<PublishStatus, string> = { DRAFT: "Draft", PUBLISHED: "Published", ARCHIVED: "Archived" };
 
-function requireAuthorId(): string {
-    const authorId = localStorage.getItem("author_id");
-    if (!authorId) throw new Error("Missing author_id. Please sign in again.");
-    return authorId;
+interface EpisodeWithStats extends EpisodeDto {
+  nodeCount: number;
+  edgeCount: number;
 }
 
-interface EpisodeWithStats extends EpisodeDto {
-    nodeCount: number;
-    edgeCount: number;
+function requireAuthorId() {
+  const authorId = localStorage.getItem("author_id");
+  if (!authorId) throw new Error("Missing author_id. Please sign in again.");
+  return authorId;
 }
 
 export default function EpisodesPage() {
-    useMemo(() => requireAuthorId(), []);
-    const navigate = useNavigate();
-    const { storyId } = useParams();
+  useMemo(() => requireAuthorId(), []);
 
-    const [story, setStory] = useState<StoryDto | null>(null);
-    const [episodes, setEpisodes] = useState<EpisodeWithStats[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const { storyId } = useParams();
+  const [story, setStory] = useState<StoryDto | null>(null);
+  const [episodes, setEpisodes] = useState<EpisodeWithStats[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [title, setTitle] = useState("");
+  const [order, setOrder] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
 
-    // Create form
-    const [showCreate, setShowCreate] = useState(false);
-    const [title, setTitle] = useState("");
-    const [order, setOrder] = useState(1);
-    const [saving, setSaving] = useState(false);
-    const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
+  async function refresh() {
+    if (!storyId) return;
 
-    async function refresh() {
-        if (!storyId) return;
-        setError("");
-        setLoading(true);
-        try {
-            const [storyData, episodeData] = await Promise.all([
-                getStory(storyId),
-                listEpisodes(storyId),
-            ]);
-            setStory(storyData);
+    setLoading(true);
+    setError("");
 
-            // Fetch stats for each episode
-            const withStats = await Promise.all(
-                episodeData.map(async (ep) => {
-                    try {
-                        const [nodes, decisions] = await Promise.all([
-                            listNodes(ep.id),
-                            listDecisions(ep.id),
-                        ]);
-                        return { ...ep, nodeCount: nodes.length, edgeCount: decisions.length };
-                    } catch {
-                        return { ...ep, nodeCount: 0, edgeCount: 0 };
-                    }
-                })
-            );
-            setEpisodes(withStats);
-            setOrder(episodeData.length + 1);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to load");
-        } finally {
-            setLoading(false);
-        }
+    try {
+      const [storyData, episodeData] = await Promise.all([getStory(storyId), listEpisodes(storyId)]);
+      const withStats = await Promise.all(
+        episodeData.map(async (episode) => {
+          try {
+            const [nodes, decisions] = await Promise.all([listNodes(episode.id), listDecisions(episode.id)]);
+            return { ...episode, nodeCount: nodes.length, edgeCount: decisions.length };
+          } catch {
+            return { ...episode, nodeCount: 0, edgeCount: 0 };
+          }
+        }),
+      );
+
+      setStory(storyData);
+      setEpisodes(withStats);
+      setOrder(episodeData.length + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load story.");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    useEffect(() => { refresh(); }, [storyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    void refresh();
+  }, [storyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    async function handleCreate() {
-        if (!storyId || !title.trim()) return;
-        setSaving(true);
-        setError("");
-        try {
-            await createEpisode({ storyId, title: title.trim(), order });
-            setTitle("");
-            setShowCreate(false);
-            await refresh();
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to create episode");
-        } finally {
-            setSaving(false);
-        }
+  async function handleCreate() {
+    if (!storyId || !title.trim()) return;
+
+    setSaving(true);
+
+    try {
+      await createEpisode({ storyId, title: title.trim(), order });
+      setTitle("");
+      setShowCreate(false);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create episode.");
+    } finally {
+      setSaving(false);
     }
+  }
 
-    async function handleStatusCycle(e: React.MouseEvent, episode: EpisodeDto) {
-        e.stopPropagation();
-        const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(episode.status) + 1) % STATUS_CYCLE.length];
-        setStatusSavingId(episode.id);
-        try {
-            const updated = await updateEpisode(episode.id, { status: nextStatus });
-            setEpisodes((prev) =>
-                prev.map((ep) => (ep.id === episode.id ? { ...ep, ...updated } : ep))
-            );
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to update status");
-        } finally {
-            setStatusSavingId(null);
-        }
+  async function handleStatusCycle(event: React.MouseEvent, episode: EpisodeDto) {
+    event.stopPropagation();
+    const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(episode.status) + 1) % STATUS_CYCLE.length];
+    setStatusSavingId(episode.id);
+
+    try {
+      const updated = await updateEpisode(episode.id, { status: nextStatus });
+      setEpisodes((current) => current.map((item) => (item.id === episode.id ? { ...item, ...updated } : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update episode status.");
+    } finally {
+      setStatusSavingId(null);
     }
+  }
 
-    async function handleDelete(e: React.MouseEvent, episodeId: string) {
-        e.stopPropagation();
-        if (!confirm("Delete this episode?")) return;
-        setError("");
-        try {
-            await deleteEpisode(episodeId);
-            await refresh();
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to delete episode");
-        }
+  async function handleDelete(event: React.MouseEvent, episodeId: string) {
+    event.stopPropagation();
+    if (!confirm("Delete this episode?")) return;
+
+    try {
+      await deleteEpisode(episodeId);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete episode.");
     }
+  }
 
-    return (
-        <div className="story-detail">
-            {/* ── Breadcrumb + header ─────────────────────────────────── */}
-            <div className="sd-breadcrumb">
-                <button className="sd-breadcrumb__link" onClick={() => navigate("/stories")}>
-                    <span className="material-symbols-outlined">arrow_back</span>
-                    Stories
-                </button>
-                <span className="sd-breadcrumb__sep">/</span>
-                <span className="sd-breadcrumb__current">{story?.title ?? "..."}</span>
-            </div>
+  return (
+    <div className="app-page episodes-page">
+      <section className="episodes-hero">
+        <div>
+          <button className="episodes-back" onClick={() => navigate("/stories")}>
+            <span className="material-symbols-outlined">arrow_back</span>
+            Back to stories
+          </button>
 
-            <header className="sd-header">
-                <div className="sd-header__info">
-                    <h1 className="sd-header__title">{story?.title ?? "Loading..."}</h1>
-                    {story?.description && (
-                        <p className="sd-header__desc">{story.description}</p>
-                    )}
-                    {story && (
-                        <span className={`ws-pill ws-pill--${story.status.toLowerCase()}`}>
-                            {STATUS_LABEL[story.status]}
-                        </span>
-                    )}
-                </div>
-                <button className="ws-btn ws-btn--primary" onClick={() => setShowCreate(true)}>
-                    <span className="material-symbols-outlined">add</span>
-                    New Episode
-                </button>
-            </header>
-
-            {error && <div className="ws-error">{error}</div>}
-
-            {/* ── Create modal ────────────────────────────────────────── */}
-            {showCreate && (
-                <div className="ws-modal-backdrop" onClick={() => setShowCreate(false)}>
-                    <div className="ws-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="ws-modal__header">
-                            <h2>New Episode</h2>
-                            <button className="ws-modal__close" onClick={() => setShowCreate(false)}>
-                                <span className="material-symbols-outlined">close</span>
-                            </button>
-                        </div>
-                        <div className="ws-modal__body">
-                            <label className="ws-field">
-                                <span className="ws-field__label">Title</span>
-                                <input
-                                    className="ws-input"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="Episode 1: The Beginning"
-                                    autoFocus
-                                />
-                            </label>
-                            <label className="ws-field">
-                                <span className="ws-field__label">Order</span>
-                                <input
-                                    className="ws-input"
-                                    type="number"
-                                    min={1}
-                                    value={order}
-                                    onChange={(e) => setOrder(Number(e.target.value))}
-                                />
-                            </label>
-                        </div>
-                        <div className="ws-modal__footer">
-                            <button className="ws-btn ws-btn--ghost" onClick={() => setShowCreate(false)}>Cancel</button>
-                            <button className="ws-btn ws-btn--primary" onClick={handleCreate} disabled={saving || !title.trim()}>
-                                {saving ? "Creating..." : "Create Episode"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ── Episodes list ────────────────────────────────────────── */}
-            {loading ? (
-                <div className="ws-empty">Loading episodes...</div>
-            ) : episodes.length === 0 ? (
-                <div className="ws-empty-state">
-                    <span className="material-symbols-outlined ws-empty-state__icon">movie</span>
-                    <h3>No episodes yet</h3>
-                    <p>Create your first episode to start building the story.</p>
-                    <button className="ws-btn ws-btn--primary" onClick={() => setShowCreate(true)}>
-                        <span className="material-symbols-outlined">add</span>
-                        Create First Episode
-                    </button>
-                </div>
-            ) : (
-                <div className="ep-list">
-                    {episodes.map((ep) => (
-                        <div
-                            className="ep-card"
-                            key={ep.id}
-                            onClick={() => { window.location.href = `/episodes/${ep.id}/graph`; }}
-                        >
-                            <div className="ep-card__left">
-                                <div className="ep-card__order">{ep.order}</div>
-                            </div>
-                            <div className="ep-card__center">
-                                <div className="ep-card__row-top">
-                                    <h3 className="ep-card__title">{ep.title}</h3>
-                                    <span className={`ws-pill ws-pill--${ep.status.toLowerCase()}`}>
-                                        {STATUS_LABEL[ep.status]}
-                                    </span>
-                                </div>
-                                <div className="ep-card__row-bottom">
-                                    <div className="ep-card__stats">
-                                        <span className="ep-card__stat">
-                                            <span className="material-symbols-outlined">image</span>
-                                            {ep.nodeCount} panels
-                                        </span>
-                                        <span className="ep-card__stat">
-                                            <span className="material-symbols-outlined">call_split</span>
-                                            {ep.edgeCount} choices
-                                        </span>
-                                    </div>
-                                    <div className="ep-card__actions">
-                                        <button
-                                            className="ws-btn ws-btn--sm ws-btn--ghost"
-                                            onClick={(e) => handleStatusCycle(e, ep)}
-                                            disabled={statusSavingId === ep.id}
-                                            title="Change status"
-                                        >
-                                            {statusSavingId === ep.id ? "..." : STATUS_LABEL[STATUS_CYCLE[(STATUS_CYCLE.indexOf(ep.status) + 1) % STATUS_CYCLE.length]]}
-                                        </button>
-                                        <button
-                                            className="ws-btn ws-btn--sm ws-btn--primary"
-                                            onClick={(e) => { e.stopPropagation(); window.location.href = `/episodes/${ep.id}/graph`; }}
-                                        >
-                                            <span className="material-symbols-outlined">account_tree</span>
-                                            Edit
-                                        </button>
-                                        <button
-                                            className="ws-btn ws-btn--sm ws-btn--danger"
-                                            onClick={(e) => handleDelete(e, ep.id)}
-                                        >
-                                            <span className="material-symbols-outlined">delete</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+          <p className="eyebrow">Episode Build</p>
+          <h1 className="page-title">{story?.title ?? "Loading story…"}</h1>
+          <p className="page-subtitle">
+            {story?.description || "This story does not have a summary yet. Episodes below become the graph-authoring entry points for panels and choices."}
+          </p>
         </div>
-    );
+
+        <div className="glass-panel episodes-story-meta">
+          {story && <span className={`app-pill app-pill--${story.status.toLowerCase()}`}>{STATUS_LABEL[story.status]}</span>}
+          <p>Open any episode to edit nodes, connect decisions, and define the interactive path readers will follow.</p>
+          <button className="app-btn app-btn--primary" onClick={() => setShowCreate(true)}>
+            <span className="material-symbols-outlined">add</span>
+            New Episode
+          </button>
+        </div>
+      </section>
+
+      {error && <div className="app-error">{error}</div>}
+
+      {showCreate && (
+        <div className="app-modal-backdrop" onClick={() => setShowCreate(false)}>
+          <div className="glass-panel app-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="app-modal__head">
+              <div>
+                <h2 className="app-modal__title">Add an episode</h2>
+                <p className="app-modal__copy">Create the next unit of your story. You will add panels and branching logic afterward.</p>
+              </div>
+              <button className="app-modal__close" onClick={() => setShowCreate(false)}>
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="app-modal__body">
+              <label className="app-field">
+                <span className="app-field__label">Episode Title</span>
+                <input className="app-input" value={title} onChange={(event) => setTitle(event.target.value)} autoFocus />
+              </label>
+              <label className="app-field">
+                <span className="app-field__label">Order</span>
+                <input className="app-input" type="number" min={1} value={order} onChange={(event) => setOrder(Number(event.target.value))} />
+              </label>
+            </div>
+            <div className="app-modal__actions">
+              <button className="app-btn app-btn--secondary" onClick={() => setShowCreate(false)}>Cancel</button>
+              <button className="app-btn app-btn--primary" onClick={handleCreate} disabled={saving || !title.trim()}>
+                {saving ? "Creating…" : "Create Episode"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="glass-panel episodes-empty">Loading episodes…</div>
+      ) : episodes.length === 0 ? (
+        <div className="glass-panel episodes-empty episodes-empty--state">
+          <span className="material-symbols-outlined">movie</span>
+          <h2>No episodes yet</h2>
+          <p>Create the first episode to start building the narrative graph.</p>
+          <button className="app-btn app-btn--primary" onClick={() => setShowCreate(true)}>
+            <span className="material-symbols-outlined">add</span>
+            Create First Episode
+          </button>
+        </div>
+      ) : (
+        <section className="episodes-list">
+          {episodes.map((episode) => {
+            const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(episode.status) + 1) % STATUS_CYCLE.length];
+
+            return (
+              <article className="glass-panel episode-card" key={episode.id} onClick={() => navigate(`/episodes/${episode.id}/graph`)}>
+                <div className="episode-card__index">{episode.order}</div>
+                <div className="episode-card__content">
+                  <div className="episode-card__top">
+                    <div>
+                      <p className="episode-card__eyebrow">Episode {episode.order}</p>
+                      <h2>{episode.title}</h2>
+                    </div>
+                    <span className={`app-pill app-pill--${episode.status.toLowerCase()}`}>{STATUS_LABEL[episode.status]}</span>
+                  </div>
+
+                  <div className="episode-card__stats">
+                    <span><strong>{episode.nodeCount}</strong> panels</span>
+                    <span><strong>{episode.edgeCount}</strong> choices</span>
+                    <span><strong>{new Date(episode.updatedAt).toLocaleDateString()}</strong> updated</span>
+                  </div>
+
+                  <div className="episode-card__actions">
+                    <button className="app-btn app-btn--secondary" onClick={(event) => handleStatusCycle(event, episode)} disabled={statusSavingId === episode.id}>
+                      {statusSavingId === episode.id ? "Updating…" : `Set ${STATUS_LABEL[nextStatus]}`}
+                    </button>
+                    <button className="app-btn app-btn--primary" onClick={(event) => { event.stopPropagation(); navigate(`/episodes/${episode.id}/graph`); }}>
+                      <span className="material-symbols-outlined">account_tree</span>
+                      Open Graph
+                    </button>
+                    <button className="app-btn app-btn--danger" onClick={(event) => handleDelete(event, episode.id)}>
+                      <span className="material-symbols-outlined">delete</span>
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+    </div>
+  );
 }
