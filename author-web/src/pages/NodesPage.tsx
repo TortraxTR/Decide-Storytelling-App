@@ -9,7 +9,7 @@ function requireAuthorId(): string {
     return authorId;
 }
 
-const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE ?? "https://decide-media-dev.s3.eu-central-1.amazonaws.com";
+const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE;
 
 export default function NodesPage() {
     useMemo(() => requireAuthorId(), []);

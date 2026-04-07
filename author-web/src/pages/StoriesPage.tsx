@@ -12,7 +12,7 @@ import {
 } from "../api";
 import "./StoriesPage.css";
 
-const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE ?? "https://decide-media-dev.s3.eu-central-1.amazonaws.com";
+const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE;
 const STATUS_LABEL: Record<PublishStatus, string> = { DRAFT: "Draft", PUBLISHED: "Published", ARCHIVED: "Archived" };
 const STATUS_CYCLE: PublishStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 
