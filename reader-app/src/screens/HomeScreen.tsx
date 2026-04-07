@@ -28,7 +28,7 @@ export default function HomeScreen({ route, navigation }: any) {
   );
 
   const openStoryEpisodes = (story: { id: string; title: string }) => {
-    navigation.navigate('EpisodeListScreen', {
+    navigation.navigate('EpisodeList', {
       storyId: story.id,
       storyTitle: story.title,
     });

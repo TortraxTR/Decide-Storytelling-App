@@ -29,7 +29,7 @@ type Node = { id: string; assetKey: string; isStart: boolean; isEnd: boolean };
 type Decision = { id: string; text: string; sourceNodeId: string; targetNodeId: string };
 
 export default function EpisodeScreen({ route }: any) {
-  const { storyId, title, userId } = route.params || {};
+  const { storyId, episodeId: selectedEpisodeId, title, userId } = route.params || {};
 
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
@@ -56,15 +56,22 @@ export default function EpisodeScreen({ route }: any) {
         setLoading(true);
         setError('');
 
-        const story = await fetchStory(storyId);
-        if (!story.episodes || story.episodes.length === 0) {
-          setError('This story has no episodes yet.');
-          return;
-        }
-        const firstEpisode = story.episodes.sort((a, b) => a.order - b.order)[0];
-        setEpisodeId(firstEpisode.id);
+        let targetEpisodeId = selectedEpisodeId;
 
-        const nodes = await fetchEpisodeNodes(firstEpisode.id);
+        // Fallback for old navigation paths that only pass storyId
+        if (!targetEpisodeId) {
+          const story = await fetchStory(storyId);
+          if (!story.episodes || story.episodes.length === 0) {
+            setError('This story has no episodes yet.');
+            return;
+          }
+          const firstEpisode = story.episodes.sort((a, b) => a.order - b.order)[0];
+          targetEpisodeId = firstEpisode.id;
+        }
+
+        setEpisodeId(targetEpisodeId);
+
+        const nodes = await fetchEpisodeNodes(targetEpisodeId);
         const startNode = nodes.find(n => n.isStart);
         if (!startNode) {
           setError('Episode has no start node.');
@@ -83,15 +90,15 @@ export default function EpisodeScreen({ route }: any) {
         }
 
         if (readerId) {
-          const session = await createOrResumeSession(readerId, firstEpisode.id, startNode.id);
+          const session = await createOrResumeSession(readerId, targetEpisodeId, startNode.id);
           setSessionId(session.id);
           const resumedNode = nodes.find(n => n.id === session.currentNodeId) ?? startNode;
           setCurrentNode(resumedNode);
-          await loadNodeContent(resumedNode, firstEpisode.id);
+          await loadNodeContent(resumedNode, targetEpisodeId);
         } else {
           // Guest mode: show start node without session tracking
           setCurrentNode(startNode);
-          await loadNodeContent(startNode, firstEpisode.id);
+          await loadNodeContent(startNode, targetEpisodeId);
         }
       } catch (e: any) {
         setError(e.message || 'Failed to load story');
@@ -101,7 +108,7 @@ export default function EpisodeScreen({ route }: any) {
     };
 
     init();
-  }, [storyId, userId, loadNodeContent]);
+  }, [storyId, selectedEpisodeId, userId, loadNodeContent]);
 
   const handleDecision = async (decisionId: string) => {
     if (!sessionId || advancing) return;

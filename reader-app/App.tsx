@@ -41,10 +41,7 @@ export default function App() {
         <Stack.Screen name="Episode" component={EpisodeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="AuthorDashboard" component={AuthorDashboardScreen} options={{ title: 'Author Panel' }} />
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-        <Stack.Screen
-          name="EpisodeListScreen"
-          component={EpisodeListScreen}
-          options={{ title: 'Episodes' }}
+        <Stack.Screen name="EpisodeList" component={EpisodeListScreen} options={{ title: 'Episodes' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

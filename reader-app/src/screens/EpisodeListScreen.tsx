@@ -24,6 +24,7 @@ type EpisodeListScreenProps = {
     params?: {
       storyId?: string;
       storyTitle?: string;
+      userId?: string;
     };
   };
 };
@@ -31,6 +32,7 @@ type EpisodeListScreenProps = {
 const EpisodeListScreen: React.FC<EpisodeListScreenProps> = ({ navigation, route }) => {
   const storyId = route?.params?.storyId ?? '';
   const storyTitle = route?.params?.storyTitle ?? 'Story';
+  const userId = route?.params?.userId;
 
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -79,10 +81,11 @@ const EpisodeListScreen: React.FC<EpisodeListScreenProps> = ({ navigation, route
   }, [fetchEpisodes]);
 
   const openEpisode = (episode: Episode) => {
-    navigation.navigate('EpisodeScreen', {
+    navigation.navigate('Episode', {
       storyId,
       episodeId: episode.id,
-      episodeTitle: episode.title,
+      title: episode.title,
+      userId,
     });
   };
 
