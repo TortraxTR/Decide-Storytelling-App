@@ -19,13 +19,20 @@ export default function HomeScreen({ route, navigation }: any) {
   const renderStoryCard = ({ item }: any) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => navigation.navigate('Story', { storyId: item.id, title: item.title, userId })}
+      onPress={() => openStoryEpisodes(item)}
     >
       <Image source={{ uri: item.coverImage }} style={styles.coverImage} />
       <Text style={styles.storyTitle} numberOfLines={1}>{item.title}</Text>
       <Text style={styles.storyAuthor} numberOfLines={1}>{item.author}</Text>
     </TouchableOpacity>
   );
+
+  const openStoryEpisodes = (story: { id: string; title: string }) => {
+    navigation.navigate('EpisodeListScreen', {
+      storyId: story.id,
+      storyTitle: story.title,
+    });
+  };
 
   if (loading) {
     return (

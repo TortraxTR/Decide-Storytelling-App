@@ -9,8 +9,20 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import StoryScreen from './src/screens/StoryScreen';
 import AuthorDashboardScreen from './src/screens/AuthorDashboardScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import EpisodeListScreen from './src/screens/EpisodeListScreen';
 
 const Stack = createNativeStackNavigator();
+
+type RootStackParamList = {
+  RoleSelection: undefined;
+  AuthChoice: undefined;
+  Login: undefined;
+  Register: undefined;
+  Story: { storyId: string; episodeId?: string; episodeTitle?: string };
+  AuthorDashboard: undefined;
+  Home: undefined;
+  EpisodeListScreen: { storyId: string; storyTitle: string };
+};
 
 export default function App() {
   return (
@@ -29,6 +41,11 @@ export default function App() {
         <Stack.Screen name="Story" component={StoryScreen} options={{ headerShown: false }} />
         <Stack.Screen name="AuthorDashboard" component={AuthorDashboardScreen} options={{ title: 'Author Panel' }} />
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="EpisodeListScreen"
+          component={EpisodeListScreen}
+          options={{ title: 'Episodes' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
