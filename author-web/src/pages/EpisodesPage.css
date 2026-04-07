@@ -1,0 +1,201 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Story Detail / Episodes page (Liquid Glass)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.story-detail {
+  padding: 32px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* ── Breadcrumb ───────────────────────────────────────────────────────────── */
+
+.sd-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--on-surface-variant);
+}
+
+.sd-breadcrumb__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--on-surface-variant);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sd-breadcrumb__link:hover {
+  color: var(--primary);
+  background: rgba(192, 193, 255, 0.06);
+}
+
+.sd-breadcrumb__link .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.sd-breadcrumb__sep {
+  color: var(--outline);
+}
+
+.sd-breadcrumb__current {
+  color: var(--on-surface);
+  font-weight: 500;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.sd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(70, 69, 84, 0.12);
+}
+
+.sd-header__info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sd-header__title {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--on-surface);
+}
+
+.sd-header__desc {
+  font-size: 14px;
+  color: var(--on-surface-variant);
+  line-height: 1.5;
+  max-width: 500px;
+}
+
+/* ── Episode list ─────────────────────────────────────────────────────────── */
+
+.ep-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ep-card {
+  display: flex;
+  gap: 16px;
+  padding: 16px 20px;
+  background: rgba(23, 31, 51, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(70, 69, 84, 0.12);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.ep-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 24px rgba(192, 193, 255, 0.06);
+  border-color: rgba(192, 193, 255, 0.2);
+}
+
+.ep-card__left {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+
+.ep-card__order {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(192, 193, 255, 0.12), rgba(128, 131, 255, 0.06));
+  border: 1px solid rgba(192, 193, 255, 0.15);
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.ep-card__center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ep-card__row-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ep-card__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ep-card__row-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ep-card__stats {
+  display: flex;
+  gap: 14px;
+}
+
+.ep-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--on-surface-variant);
+}
+
+.ep-card__stat .material-symbols-outlined {
+  font-size: 15px;
+  color: var(--outline);
+}
+
+.ep-card__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── Reuse ws-* classes from StoriesPage.css ──────────────────────────────── */
+/* ws-pill, ws-btn, ws-modal, ws-field, ws-input, ws-empty, ws-error are
+   defined in StoriesPage.css and shared via the AppShell layout. */
+
+@media (max-width: 640px) {
+  .story-detail { padding: 20px 16px; }
+  .sd-header { flex-direction: column; gap: 16px; }
+  .ep-card { flex-direction: column; }
+  .ep-card__row-bottom { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .ep-card__actions { width: 100%; justify-content: flex-end; }
+}

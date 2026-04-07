@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { createEpisode, listEpisodes, type EpisodeDto, deleteEpisode } from "../api";
-import "./CrudPage.css";
+import {
+    getStory,
+    createEpisode,
+    listEpisodes,
+    updateEpisode,
+    deleteEpisode,
+    listNodes,
+    listDecisions,
+    type StoryDto,
+    type EpisodeDto,
+    type PublishStatus,
+} from "../api";
+import "./EpisodesPage.css";
+
+const STATUS_CYCLE: PublishStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
+const STATUS_LABEL: Record<PublishStatus, string> = { DRAFT: "Draft", PUBLISHED: "Published", ARCHIVED: "Archived" };
 
 function requireAuthorId(): string {
     const authorId = localStorage.getItem("author_id");
@@ -9,38 +23,63 @@ function requireAuthorId(): string {
     return authorId;
 }
 
-export default function EpisodesPage() {
-    useMemo(() => requireAuthorId(), []); // ensure logged in
+interface EpisodeWithStats extends EpisodeDto {
+    nodeCount: number;
+    edgeCount: number;
+}
 
+export default function EpisodesPage() {
+    useMemo(() => requireAuthorId(), []);
     const navigate = useNavigate();
     const { storyId } = useParams();
 
-    const [episodes, setEpisodes] = useState<EpisodeDto[]>([]);
+    const [story, setStory] = useState<StoryDto | null>(null);
+    const [episodes, setEpisodes] = useState<EpisodeWithStats[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    // Create form
+    const [showCreate, setShowCreate] = useState(false);
     const [title, setTitle] = useState("");
     const [order, setOrder] = useState(1);
     const [saving, setSaving] = useState(false);
+    const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
 
     async function refresh() {
         if (!storyId) return;
         setError("");
         setLoading(true);
         try {
-            const data = await listEpisodes(storyId);
-            setEpisodes(data);
+            const [storyData, episodeData] = await Promise.all([
+                getStory(storyId),
+                listEpisodes(storyId),
+            ]);
+            setStory(storyData);
+
+            // Fetch stats for each episode
+            const withStats = await Promise.all(
+                episodeData.map(async (ep) => {
+                    try {
+                        const [nodes, decisions] = await Promise.all([
+                            listNodes(ep.id),
+                            listDecisions(ep.id),
+                        ]);
+                        return { ...ep, nodeCount: nodes.length, edgeCount: decisions.length };
+                    } catch {
+                        return { ...ep, nodeCount: 0, edgeCount: 0 };
+                    }
+                })
+            );
+            setEpisodes(withStats);
+            setOrder(episodeData.length + 1);
         } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to load episodes");
+            setError(e instanceof Error ? e.message : "Failed to load");
         } finally {
             setLoading(false);
         }
     }
 
-    useEffect(() => {
-        refresh();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [storyId]);
+    useEffect(() => { refresh(); }, [storyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     async function handleCreate() {
         if (!storyId || !title.trim()) return;
@@ -49,7 +88,7 @@ export default function EpisodesPage() {
         try {
             await createEpisode({ storyId, title: title.trim(), order });
             setTitle("");
-            setOrder(order + 1);
+            setShowCreate(false);
             await refresh();
         } catch (e) {
             setError(e instanceof Error ? e.message : "Failed to create episode");
@@ -58,7 +97,25 @@ export default function EpisodesPage() {
         }
     }
 
-    async function handleDelete(episodeId: string) {
+    async function handleStatusCycle(e: React.MouseEvent, episode: EpisodeDto) {
+        e.stopPropagation();
+        const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(episode.status) + 1) % STATUS_CYCLE.length];
+        setStatusSavingId(episode.id);
+        try {
+            const updated = await updateEpisode(episode.id, { status: nextStatus });
+            setEpisodes((prev) =>
+                prev.map((ep) => (ep.id === episode.id ? { ...ep, ...updated } : ep))
+            );
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to update status");
+        } finally {
+            setStatusSavingId(null);
+        }
+    }
+
+    async function handleDelete(e: React.MouseEvent, episodeId: string) {
+        e.stopPropagation();
+        if (!confirm("Delete this episode?")) return;
         setError("");
         try {
             await deleteEpisode(episodeId);
@@ -69,84 +126,150 @@ export default function EpisodesPage() {
     }
 
     return (
-        <div className="crud-page">
-            <header className="crud-header">
-                <div className="crud-brand" onClick={() => navigate("/stories")} role="button" tabIndex={0}>
-                    <span>📖</span>
-                    <h1>Episodes</h1>
+        <div className="story-detail">
+            {/* ── Breadcrumb + header ─────────────────────────────────── */}
+            <div className="sd-breadcrumb">
+                <button className="sd-breadcrumb__link" onClick={() => navigate("/stories")}>
+                    <span className="material-symbols-outlined">arrow_back</span>
+                    Stories
+                </button>
+                <span className="sd-breadcrumb__sep">/</span>
+                <span className="sd-breadcrumb__current">{story?.title ?? "..."}</span>
+            </div>
+
+            <header className="sd-header">
+                <div className="sd-header__info">
+                    <h1 className="sd-header__title">{story?.title ?? "Loading..."}</h1>
+                    {story?.description && (
+                        <p className="sd-header__desc">{story.description}</p>
+                    )}
+                    {story && (
+                        <span className={`ws-pill ws-pill--${story.status.toLowerCase()}`}>
+                            {STATUS_LABEL[story.status]}
+                        </span>
+                    )}
                 </div>
-                <div className="crud-actions">
-                    <button className="btn-secondary" onClick={() => navigate("/stories")}>← Stories</button>
-                </div>
+                <button className="ws-btn ws-btn--primary" onClick={() => setShowCreate(true)}>
+                    <span className="material-symbols-outlined">add</span>
+                    New Episode
+                </button>
             </header>
 
-            <main className="crud-main">
-                <section className="card">
-                    <h2>Create episode</h2>
-                    <div className="form-row">
-                        <label>
-                            Title
-                            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Episode 1" />
-                        </label>
-                        <label>
-                            Order
-                            <input
-                                type="number"
-                                min={1}
-                                value={order}
-                                onChange={(e) => setOrder(Number(e.target.value))}
-                            />
-                        </label>
-                    </div>
-                    <div className="form-actions">
-                        <button className="btn-primary" onClick={handleCreate} disabled={saving || !title.trim()}>
-                            {saving ? "Creating…" : "Create"}
-                        </button>
-                    </div>
-                    {error && <div className="form-error">{error}</div>}
-                </section>
+            {error && <div className="ws-error">{error}</div>}
 
-                <section className="card">
-                    <div className="card-title-row">
-                        <h2>Episodes</h2>
-                        <button className="btn-secondary" onClick={refresh} disabled={loading}>Refresh</button>
+            {/* ── Create modal ────────────────────────────────────────── */}
+            {showCreate && (
+                <div className="ws-modal-backdrop" onClick={() => setShowCreate(false)}>
+                    <div className="ws-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="ws-modal__header">
+                            <h2>New Episode</h2>
+                            <button className="ws-modal__close" onClick={() => setShowCreate(false)}>
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div className="ws-modal__body">
+                            <label className="ws-field">
+                                <span className="ws-field__label">Title</span>
+                                <input
+                                    className="ws-input"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    placeholder="Episode 1: The Beginning"
+                                    autoFocus
+                                />
+                            </label>
+                            <label className="ws-field">
+                                <span className="ws-field__label">Order</span>
+                                <input
+                                    className="ws-input"
+                                    type="number"
+                                    min={1}
+                                    value={order}
+                                    onChange={(e) => setOrder(Number(e.target.value))}
+                                />
+                            </label>
+                        </div>
+                        <div className="ws-modal__footer">
+                            <button className="ws-btn ws-btn--ghost" onClick={() => setShowCreate(false)}>Cancel</button>
+                            <button className="ws-btn ws-btn--primary" onClick={handleCreate} disabled={saving || !title.trim()}>
+                                {saving ? "Creating..." : "Create Episode"}
+                            </button>
+                        </div>
                     </div>
-                    {loading ? (
-                        <div className="muted">Loading…</div>
-                    ) : episodes.length === 0 ? (
-                        <div className="muted">No episodes yet.</div>
-                    ) : (
-                        <div className="list">
-                            {episodes.map((e) => (
-                                <div className="list-item" key={e.id}>
-                                    <div className="list-meta">
-                                        <div className="list-title">{e.order}. {e.title}</div>
-                                        <div className="muted">ID: {e.id}</div>
+                </div>
+            )}
+
+            {/* ── Episodes list ────────────────────────────────────────── */}
+            {loading ? (
+                <div className="ws-empty">Loading episodes...</div>
+            ) : episodes.length === 0 ? (
+                <div className="ws-empty-state">
+                    <span className="material-symbols-outlined ws-empty-state__icon">movie</span>
+                    <h3>No episodes yet</h3>
+                    <p>Create your first episode to start building the story.</p>
+                    <button className="ws-btn ws-btn--primary" onClick={() => setShowCreate(true)}>
+                        <span className="material-symbols-outlined">add</span>
+                        Create First Episode
+                    </button>
+                </div>
+            ) : (
+                <div className="ep-list">
+                    {episodes.map((ep) => (
+                        <div
+                            className="ep-card"
+                            key={ep.id}
+                            onClick={() => navigate(`/episodes/${ep.id}/graph`)}
+                        >
+                            <div className="ep-card__left">
+                                <div className="ep-card__order">{ep.order}</div>
+                            </div>
+                            <div className="ep-card__center">
+                                <div className="ep-card__row-top">
+                                    <h3 className="ep-card__title">{ep.title}</h3>
+                                    <span className={`ws-pill ws-pill--${ep.status.toLowerCase()}`}>
+                                        {STATUS_LABEL[ep.status]}
+                                    </span>
+                                </div>
+                                <div className="ep-card__row-bottom">
+                                    <div className="ep-card__stats">
+                                        <span className="ep-card__stat">
+                                            <span className="material-symbols-outlined">image</span>
+                                            {ep.nodeCount} panels
+                                        </span>
+                                        <span className="ep-card__stat">
+                                            <span className="material-symbols-outlined">call_split</span>
+                                            {ep.edgeCount} choices
+                                        </span>
                                     </div>
-                                    <div className="list-buttons">
+                                    <div className="ep-card__actions">
                                         <button
-                                            className="btn-primary"
-                                            onClick={() => navigate(`/episodes/${e.id}/graph`)}
+                                            className="ws-btn ws-btn--sm ws-btn--ghost"
+                                            onClick={(e) => handleStatusCycle(e, ep)}
+                                            disabled={statusSavingId === ep.id}
+                                            title="Change status"
                                         >
-                                            🔀 Graph Editor
+                                            {statusSavingId === ep.id ? "..." : STATUS_LABEL[STATUS_CYCLE[(STATUS_CYCLE.indexOf(ep.status) + 1) % STATUS_CYCLE.length]]}
                                         </button>
-                                        <button className="btn-secondary" onClick={() => navigate(`/episodes/${e.id}/nodes`)}>
-                                            Nodes
+                                        <button
+                                            className="ws-btn ws-btn--sm ws-btn--primary"
+                                            onClick={(e) => { e.stopPropagation(); navigate(`/episodes/${ep.id}/graph`); }}
+                                        >
+                                            <span className="material-symbols-outlined">account_tree</span>
+                                            Edit
                                         </button>
-                                        <button className="btn-secondary" onClick={() => navigate(`/episodes/${e.id}/decisions`)}>
-                                            Decisions
-                                        </button>
-                                        <button className="btn-danger" onClick={() => handleDelete(e.id)}>
-                                            Delete
+                                        <button
+                                            className="ws-btn ws-btn--sm ws-btn--danger"
+                                            onClick={(e) => handleDelete(e, ep.id)}
+                                        >
+                                            <span className="material-symbols-outlined">delete</span>
                                         </button>
                                     </div>
                                 </div>
-                            ))}
+                            </div>
                         </div>
-                    )}
-                </section>
-            </main>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
-

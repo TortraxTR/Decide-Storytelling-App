@@ -29,6 +29,18 @@ async def get_reader(reader_id: str):
     return reader
 
 
+@router.post("/ensure", status_code=status.HTTP_200_OK)
+async def ensure_reader(payload: ReaderCreate):
+    """Get-or-create a Reader profile for a given userId. Safe to call on every app launch."""
+    existing = await db.reader.find_unique(where={"userId": payload.userId})
+    if existing:
+        return existing
+    try:
+        return await db.reader.create(data=payload.model_dump())
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_reader(payload: ReaderCreate):
     try:

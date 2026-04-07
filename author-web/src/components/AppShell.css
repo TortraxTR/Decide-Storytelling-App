@@ -1,0 +1,152 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   AppShell — Persistent sidebar + content layout (Liquid Glass)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--surface);
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+
+.shell-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px 12px;
+  background: rgba(11, 19, 38, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(70, 69, 84, 0.12);
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 40;
+}
+
+.shell-sidebar--collapsed {
+  width: 64px;
+}
+
+.shell-sidebar__top {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.shell-sidebar__bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Brand ────────────────────────────────────────────────────────────────── */
+
+.shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background 0.15s;
+}
+
+.shell-brand:hover {
+  background: rgba(192, 193, 255, 0.06);
+}
+
+.shell-brand__icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(192, 193, 255, 0.15), rgba(128, 131, 255, 0.1));
+  border: 1px solid rgba(192, 193, 255, 0.2);
+}
+
+.shell-brand__icon .material-symbols-outlined {
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.shell-brand__text {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dim));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Navigation ───────────────────────────────────────────────────────────── */
+
+.shell-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shell-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  border-radius: 10px;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.shell-nav__item:hover {
+  background: rgba(192, 193, 255, 0.06);
+  color: var(--on-surface);
+}
+
+.shell-nav__item--active {
+  background: rgba(192, 193, 255, 0.1);
+  color: var(--primary);
+  border-left: 2px solid var(--primary);
+  padding-left: 10px;
+}
+
+.shell-nav__item--danger:hover {
+  color: var(--error);
+  background: rgba(255, 180, 171, 0.06);
+}
+
+.shell-nav__item .material-symbols-outlined {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+/* ── Content ──────────────────────────────────────────────────────────────── */
+
+.shell-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  position: relative;
+}
+
+.shell-error {
+  background: rgba(255, 180, 171, 0.08);
+  border-bottom: 1px solid rgba(255, 180, 171, 0.2);
+  color: var(--error);
+  padding: 10px 24px;
+  font-size: 13px;
+}

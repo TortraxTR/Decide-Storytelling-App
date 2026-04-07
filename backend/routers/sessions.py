@@ -8,7 +8,7 @@ router = APIRouter(prefix="/sessions", tags=["Read Sessions"])
 class SessionCreate(BaseModel):
     readerId: str
     episodeId: str
-    currentNodeId: str
+    currentNodeId: Optional[str] = None  # auto-resolved from isStart node if omitted
 
 class SessionAdvance(BaseModel):
     decisionId: str
@@ -43,19 +43,45 @@ async def get_session(session_id: str):
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_or_resume_session(payload: SessionCreate):
-    """Create a new session or resume an existing one for a reader/episode pair."""
-    try:
-        existing = await db.readsession.find_unique(
-            where={
-                "readerId_episodeId": {
-                    "readerId": payload.readerId,
-                    "episodeId": payload.episodeId
-                }
+    """Create a new session or resume an existing one for a reader/episode pair.
+
+    If `currentNodeId` is omitted the start node (isStart=True) is resolved automatically.
+    """
+    # Resume existing session if one already exists
+    existing = await db.readsession.find_unique(
+        where={
+            "readerId_episodeId": {
+                "readerId": payload.readerId,
+                "episodeId": payload.episodeId,
             }
+        },
+        include={"currentNode": True},
+    )
+    if existing:
+        return existing
+
+    # Resolve start node
+    start_node_id = payload.currentNodeId
+    if not start_node_id:
+        start_node = await db.episodenode.find_first(
+            where={"episodeId": payload.episodeId, "isStart": True}
         )
-        if existing:
-            return existing
-        return await db.readsession.create(data=payload.model_dump())
+        if not start_node:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="This episode has no start node. The author must mark a node as the starting point.",
+            )
+        start_node_id = start_node.id
+
+    try:
+        return await db.readsession.create(
+            data={
+                "readerId": payload.readerId,
+                "episodeId": payload.episodeId,
+                "currentNodeId": start_node_id,
+            },
+            include={"currentNode": True},
+        )
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
