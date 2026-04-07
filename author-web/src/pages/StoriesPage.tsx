@@ -30,7 +30,7 @@ function requireAuthorId() {
 }
 
 function storyThumb(key: string | null | undefined) {
-  if (!key) return null;
+  if (!key || !S3_PUBLIC_BASE) return null;
   return `${S3_PUBLIC_BASE.replace(/\/+$/, "")}/${key.replace(/^\/+/, "")}`;
 }
 
