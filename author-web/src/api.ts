@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const DEFAULT_API_BASE = "https://mswgurkeeq.eu-central-1.awsapprunner.com";
+const API_BASE = import.meta.env.VITE_API_URL?.trim() || DEFAULT_API_BASE;
 
 // ---------------------------------------------------------------------------
 // Types
