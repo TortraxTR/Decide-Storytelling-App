@@ -11,6 +11,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+
 import {
   fetchStory,
   fetchEpisodeNodes,
@@ -27,7 +28,7 @@ const { width } = Dimensions.get('window');
 type Node = { id: string; assetKey: string; isStart: boolean; isEnd: boolean };
 type Decision = { id: string; text: string; sourceNodeId: string; targetNodeId: string };
 
-export default function StoryScreen({ route }: any) {
+export default function EpisodeScreen({ route }: any) {
   const { storyId, title, userId } = route.params || {};
 
   const [loading, setLoading] = useState(true);

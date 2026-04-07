@@ -79,7 +79,7 @@ const EpisodeListScreen: React.FC<EpisodeListScreenProps> = ({ navigation, route
   }, [fetchEpisodes]);
 
   const openEpisode = (episode: Episode) => {
-    navigation.navigate('StoryScreen', {
+    navigation.navigate('EpisodeScreen', {
       storyId,
       episodeId: episode.id,
       episodeTitle: episode.title,

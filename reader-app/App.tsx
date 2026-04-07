@@ -6,7 +6,7 @@ import RoleScreen from './src/screens/RoleScreen';
 import AuthChoiceScreen from './src/screens/AuthChoiceScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
-import StoryScreen from './src/screens/StoryScreen';
+import EpisodeScreen from './src/screens/EpisodeScreen';
 import AuthorDashboardScreen from './src/screens/AuthorDashboardScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import EpisodeListScreen from './src/screens/EpisodeListScreen';
@@ -38,7 +38,7 @@ export default function App() {
         <Stack.Screen name="AuthChoice" component={AuthChoiceScreen} options={{ title: 'Welcome' }} />
         <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Login' }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Register' }} />
-        <Stack.Screen name="Story" component={StoryScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Episode" component={EpisodeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="AuthorDashboard" component={AuthorDashboardScreen} options={{ title: 'Author Panel' }} />
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen
