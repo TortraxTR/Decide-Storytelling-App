@@ -218,7 +218,7 @@ export default function EpisodesPage() {
                         <div
                             className="ep-card"
                             key={ep.id}
-                            onClick={() => navigate(`/episodes/${ep.id}/graph`)}
+                            onClick={() => { window.location.href = `/episodes/${ep.id}/graph`; }}
                         >
                             <div className="ep-card__left">
                                 <div className="ep-card__order">{ep.order}</div>
@@ -252,7 +252,7 @@ export default function EpisodesPage() {
                                         </button>
                                         <button
                                             className="ws-btn ws-btn--sm ws-btn--primary"
-                                            onClick={(e) => { e.stopPropagation(); navigate(`/episodes/${ep.id}/graph`); }}
+                                            onClick={(e) => { e.stopPropagation(); window.location.href = `/episodes/${ep.id}/graph`; }}
                                         >
                                             <span className="material-symbols-outlined">account_tree</span>
                                             Edit
