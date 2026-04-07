@@ -12,6 +12,7 @@ export default function AppShell() {
     const location = useLocation();
     const [collapsed, setCollapsed] = useState(false);
     const [initError, setInitError] = useState("");
+    const [ready, setReady] = useState(false);
 
     useEffect(() => {
         const userId = localStorage.getItem("user_id");
@@ -19,8 +20,8 @@ export default function AppShell() {
         const isValidUuid = (v: string | null) =>
             !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
-        if (!userId) return;
-        if (isValidUuid(authorId)) return;
+        if (!userId) { setReady(true); return; }
+        if (isValidUuid(authorId)) { setReady(true); return; }
 
         localStorage.removeItem("author_id");
         (async () => {
@@ -29,6 +30,8 @@ export default function AppShell() {
                 localStorage.setItem("author_id", res.id);
             } catch (e) {
                 setInitError(e instanceof Error ? e.message : "Failed to initialize author profile");
+            } finally {
+                setReady(true);
             }
         })();
     }, []);
@@ -94,7 +97,12 @@ export default function AppShell() {
                 {initError && (
                     <div className="shell-error">{initError}</div>
                 )}
-                <Outlet />
+                {ready ? <Outlet /> : (
+                    <div className="shell-loading">
+                        <span className="material-symbols-outlined shell-loading__icon">auto_stories</span>
+                        <p>Loading…</p>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -72,7 +72,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         ...((options.headers as Record<string, string>) ?? {}),
     };
 
-    const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    let res: Response;
+    try {
+        res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    } catch {
+        throw new Error("Cannot reach the server. Please check your connection or try again later.");
+    }
 
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));
