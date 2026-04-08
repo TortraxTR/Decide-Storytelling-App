@@ -288,8 +288,10 @@ export default function EpisodeScreen({ route }: any) {
                     </View>
                   ) : isLastItem ? (
                     <>
-                      <Text style={styles.decisionPrompt}>What do you do?</Text>
-                      {item.decisions.length > 0 ? (
+                      
+                      {item.decisions.length > 1 && (
+                        <Text style={styles.decisionPrompt}>What do you do?</Text> )}
+                        {item.decisions.length > 0 ? (
                         item.decisions.map((d) => (
                           <TouchableOpacity
                             key={d.id}
