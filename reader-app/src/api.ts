@@ -149,3 +149,13 @@ export const advanceSession = async (sessionId: string, decisionId: string) => {
     currentNode: { id: string; assetKey: string; isStart: boolean; isEnd: boolean };
   };
 };
+
+export const deleteSession = async (sessionId: string) => {
+  const response = await fetch(`${BASE_URL}/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.detail || 'Failed to delete session');
+  }
+};
