@@ -60,7 +60,7 @@ export const createReader = async (userId: string) => {
 
 export const fetchStories = async () => {
   try {
-    const response = await fetch(`${BASE_URL}/stories/`);
+    const response = await fetch(`${BASE_URL}/stories/?publish_status=PUBLISHED`);
     if (!response.ok) return [];
     const data = await response.json();
     return data.map((story: any) => ({
