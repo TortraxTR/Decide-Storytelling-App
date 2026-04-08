@@ -1,13 +1,14 @@
 import React, { ReactNode } from 'react';
 import {
-  SafeAreaView,
   StyleSheet,
   View,
   StatusBar,
   ScrollView,
   ViewStyle,
+  ScrollViewProps,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 
 type Props = {
@@ -16,17 +17,17 @@ type Props = {
   footer?: ReactNode;
   scrollable?: boolean;
   contentContainerStyle?: ViewStyle;
+  scrollViewProps?: Omit<ScrollViewProps, 'style' | 'contentContainerStyle' | 'children'>;
 };
 
 export const LiquidScreen: React.FC<Props> = ({
   children,
   header,
   footer,
-  scrollable = true,
+  scrollable = false,
   contentContainerStyle,
+  scrollViewProps,
 }) => {
-  const Container = scrollable ? ScrollView : View;
-
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" />
@@ -38,14 +39,20 @@ export const LiquidScreen: React.FC<Props> = ({
       />
       <SafeAreaView style={styles.safe}>
         {header && <View style={styles.header}>{header}</View>}
-        <Container
-          style={styles.container}
-          contentContainerStyle={
-            scrollable ? [styles.scrollContent, contentContainerStyle] : undefined
-          }
-        >
-          {children}
-        </Container>
+
+        {scrollable ? (
+          <ScrollView
+            style={styles.container}
+            contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+            showsVerticalScrollIndicator={false}
+            {...scrollViewProps}
+          >
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={styles.container}>{children}</View>
+        )}
+
         {footer && <View style={styles.footer}>{footer}</View>}
       </SafeAreaView>
     </View>

@@ -1,22 +1,82 @@
-import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { LiquidScreen } from '../components/ui/LiquidScreen';
+import { GlassCard } from '../components/ui/GlassCard';
+import { GradientButton } from '../components/ui/GradientButton';
+import { Chip } from '../components/ui/Chip';
+import { textStyles } from '../theme/typography';
+import { colors } from '../theme/colors';
+import type { Role } from '../context/AuthContext';
 
-export default function RoleScreen({ navigation }: any) {
+type Props = {
+  navigation: any;
+};
+
+const RoleScreen: React.FC<Props> = ({ navigation }) => {
+  const [role, setRole] = useState<Role>('reader');
+
+  const handleContinue = () => {
+    navigation.navigate('AuthChoice', { role });
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Choose Your Role</Text>
-      <View style={styles.buttonContainer}>
-        <Button title="Reader" onPress={() => navigation.navigate('AuthChoice', { role: 'Reader' })} />
+    <LiquidScreen>
+      <View style={styles.hero}>
+        <Text style={textStyles.label}>Choose your vantage point</Text>
+        <Text style={[textStyles.displayLg, styles.title]}>
+          Are you in the crowd or behind the curtain?
+        </Text>
       </View>
-      <View style={styles.buttonContainer}>
-        <Button title="Author" onPress={() => navigation.navigate('AuthChoice', { role: 'Author' })} />
-      </View>
-    </View>
+
+      <GlassCard elevated style={styles.card}>
+        <Text style={textStyles.body}>
+          Decide how you step into Decide. You can switch roles later, but
+          we&apos;ll tune the experience from this first choice.
+        </Text>
+
+        <View style={styles.chips}>
+          <Chip
+            label="Immersive Reader"
+            selected={role === 'reader'}
+            onPress={() => setRole('reader')}
+          />
+          <Chip
+            label="Story Author"
+            selected={role === 'author'}
+            onPress={() => setRole('author')}
+          />
+        </View>
+
+        <GradientButton
+          label="Continue"
+          onPress={handleContinue}
+          style={styles.btn}
+        />
+      </GlassCard>
+    </LiquidScreen>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' },
-  text: { color: 'white', fontSize: 24, marginBottom: 30, fontWeight: 'bold' },
-  buttonContainer: { marginVertical: 10, width: '60%' }
+  hero: {
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  title: {
+    marginTop: 6,
+  },
+  card: {
+    marginBottom: 16,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 18,
+  },
+  btn: {
+    marginTop: 20,
+    width: '100%',
+  },
 });
+
+export default RoleScreen;
