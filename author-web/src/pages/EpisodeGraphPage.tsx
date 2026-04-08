@@ -62,9 +62,11 @@ interface StoryNodeData {
   canReceiveConnection: boolean;
   isConnectionPrompted: boolean;
   onPromptConnection: (nodeId: string) => void;
+  onChoiceDraftChange: (choiceId: string, value: string) => void;
   onToggleStart: (node: EpisodeNodeDto) => void;
   onToggleEnd: (node: EpisodeNodeDto) => void;
   onDelete: (nodeId: string) => void;
+  choiceDrafts: Record<string, string>;
 }
 
 function StoryNode({ data, selected }: NodeProps) {
@@ -80,9 +82,11 @@ function StoryNode({ data, selected }: NodeProps) {
     canReceiveConnection,
     isConnectionPrompted,
     onPromptConnection,
+    onChoiceDraftChange,
     onToggleStart,
     onToggleEnd,
     onDelete,
+    choiceDrafts,
   } =
     data as unknown as StoryNodeData;
   const badges = [
@@ -129,7 +133,14 @@ function StoryNode({ data, selected }: NodeProps) {
                 <div className="graph-node__choice-list">
                   {choices.map((choice) => (
                     <div className="graph-node__choice" key={choice.id}>
-                      <span>{choice.label}</span>
+                      <input
+                        className="graph-node__choice-input"
+                        value={choiceDrafts[choice.id] ?? choice.label}
+                        onChange={(event) => onChoiceDraftChange(choice.id, event.target.value)}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={(event) => event.stopPropagation()}
+                        placeholder={`Option ${choices.findIndex((item) => item.id === choice.id) + 1}`}
+                      />
                       <span className="graph-node__choice-dot" />
                     </div>
                   ))}
@@ -728,6 +739,8 @@ export default function EpisodeGraphPage() {
   const [error, setError] = useState("");
   const [selectedDecision, setSelectedDecision] = useState<DecisionDto | null>(null);
   const [decisionText, setDecisionText] = useState("");
+  const [choiceDrafts, setChoiceDrafts] = useState<Record<string, string>>({});
+  const [savingGraph, setSavingGraph] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [zoomPercent, setZoomPercent] = useState(100);
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance<Node, Edge> | null>(null);
@@ -740,6 +753,7 @@ export default function EpisodeGraphPage() {
     nextNodes: EpisodeNodeDto[],
     nextDecisions: DecisionDto[],
     imageUrls: Record<string, string>,
+    nextChoiceDrafts: Record<string, string>,
   ) => {
     const visibleDecisions = dedupeDecisions(nextDecisions);
     const positions = buildLayout(nextNodes, visibleDecisions);
@@ -769,9 +783,11 @@ export default function EpisodeGraphPage() {
             setPromptedNodeId(nodeId);
             setError("");
           },
+          onChoiceDraftChange: handleChoiceDraftChange,
           onToggleStart: handleToggleStart,
           onToggleEnd: handleToggleEnd,
           onDelete: handleDeleteNode,
+          choiceDrafts: nextChoiceDrafts,
         },
         draggable: true,
         selectable: true,
@@ -858,9 +874,17 @@ export default function EpisodeGraphPage() {
       const hydratedNodes = hydrateNodesWithStoredPositions(episodeId, nextNodes);
       pruneStoredNodePositions(episodeId, hydratedNodes.map((node) => node.id));
 
+      const nextChoiceDrafts = Object.fromEntries(
+        nextDecisions.map((decision, index) => [
+          decision.id,
+          decision.text?.trim() || `Option ${index + 1}`,
+        ]),
+      );
+
       setEpisode(episodes.find((item) => item.id === episodeId) ?? null);
       setNodeDtos(hydratedNodes);
       setDecisionDtos(nextDecisions);
+      setChoiceDrafts(nextChoiceDrafts);
       setPromptedNodeId((current) => (current && hydratedNodes.some((node) => node.id === current) ? current : null));
       setSelectedDecision((current) => (
         current && nextDecisions.some((decision) => decision.id === current.id) ? current : null
@@ -872,7 +896,7 @@ export default function EpisodeGraphPage() {
       ) {
         setError("Cleaned invalid graph data automatically.");
       }
-      rebuildFlow(hydratedNodes, nextDecisions, imageUrlMap);
+      rebuildFlow(hydratedNodes, nextDecisions, imageUrlMap, nextChoiceDrafts);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load graph.");
     } finally {
@@ -1001,7 +1025,7 @@ export default function EpisodeGraphPage() {
         ]),
       );
 
-      rebuildFlow(nodeDtos, nextDecisions, imageUrlMap);
+      rebuildFlow(nodeDtos, nextDecisions, imageUrlMap, choiceDrafts);
     } catch (err) {
       setError(explainDecisionError(err));
     }
@@ -1076,6 +1100,84 @@ export default function EpisodeGraphPage() {
     if (!decision) return;
     setSelectedDecision(decision);
     setDecisionText(decision.text ?? "");
+  }
+
+  function handleChoiceDraftChange(choiceId: string, value: string) {
+    setChoiceDrafts((current) => {
+      const nextDrafts = { ...current, [choiceId]: value };
+
+      setRfNodes((currentNodes) =>
+        currentNodes.map((node) => ({
+          ...node,
+          data: {
+            ...((node.data as unknown) as StoryNodeData),
+            choiceDrafts: nextDrafts,
+          },
+        })),
+      );
+
+      return nextDrafts;
+    });
+  }
+
+  function currentImageUrlMap() {
+    return Object.fromEntries(
+      rfNodes.map((rfNode) => [
+        rfNode.id,
+        (((rfNode.data as unknown) as StoryNodeData | undefined)?.imageUrl ?? ""),
+      ]),
+    );
+  }
+
+  async function handleSaveGraph() {
+    const dirtyDecisions = decisionDtos.filter((decision, index) => {
+      const draft = (choiceDrafts[decision.id] ?? `Option ${index + 1}`).trim();
+      const current = decision.text?.trim() ?? "";
+      return draft !== current;
+    });
+
+    if (dirtyDecisions.length === 0) return;
+
+    setSavingGraph(true);
+    setError("");
+
+    try {
+      const updatedDecisions = await Promise.all(
+        dirtyDecisions.map((decision) => {
+          const fallbackIndex = decisionDtos.findIndex((item) => item.id === decision.id);
+          const draft = (choiceDrafts[decision.id] ?? `Option ${fallbackIndex + 1}`).trim();
+          return updateDecision(decision.id, { text: draft });
+        }),
+      );
+
+      const updatedById = new Map(updatedDecisions.map((decision) => [decision.id, decision]));
+      const nextDecisions = decisionDtos.map((decision) => updatedById.get(decision.id) ?? decision);
+
+      setDecisionDtos(nextDecisions);
+      setChoiceDrafts(
+        Object.fromEntries(
+          nextDecisions.map((decision, index) => [
+            decision.id,
+            decision.text?.trim() || `Option ${index + 1}`,
+          ]),
+        ),
+      );
+      rebuildFlow(
+        nodeDtos,
+        nextDecisions,
+        currentImageUrlMap(),
+        Object.fromEntries(
+          nextDecisions.map((decision, index) => [
+            decision.id,
+            decision.text?.trim() || `Option ${index + 1}`,
+          ]),
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save graph changes.");
+    } finally {
+      setSavingGraph(false);
+    }
   }
 
   async function handleSaveDecision() {
@@ -1186,6 +1288,10 @@ export default function EpisodeGraphPage() {
                 <button className="graph-action" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
                   <span className="material-symbols-outlined">add_photo_alternate</span>
                   {uploading ? "Uploading…" : "Add Panel"}
+                </button>
+                <button className="graph-action" onClick={handleSaveGraph} disabled={savingGraph}>
+                  <span className="material-symbols-outlined">save</span>
+                  {savingGraph ? "Saving…" : "Save"}
                 </button>
                 <button className="graph-action graph-action--primary" onClick={handlePublish} disabled={publishing || !episode}>
                   <span className="material-symbols-outlined">{episode?.status === "PUBLISHED" ? "ink_eraser" : "publish"}</span>
