@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import RoleScreen from './src/screens/RoleScreen';
 import AuthChoiceScreen from './src/screens/AuthChoiceScreen';
@@ -26,6 +27,7 @@ type RootStackParamList = {
 
 export default function App() {
   return (
+    <SafeAreaProvider>
     <NavigationContainer>
       <Stack.Navigator 
         initialRouteName="RoleSelection"
@@ -45,5 +47,6 @@ export default function App() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
