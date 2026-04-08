@@ -165,7 +165,7 @@ export default function EpisodeScreen({ route }: any) {
         {!currentNode?.isEnd && decisions.length > 0 && (
           <View style={styles.decisionContainer}>
             <Text style={styles.decisionPrompt}>What do you do?</Text>
-            {decisions.map(d => (
+            {decisions.map((d, index) => (
               <TouchableOpacity
                 key={d.id}
                 style={[styles.decisionButton, advancing && styles.decisionButtonDisabled]}
@@ -175,7 +175,7 @@ export default function EpisodeScreen({ route }: any) {
                 {advancing ? (
                   <ActivityIndicator color="#121212" />
                 ) : (
-                  <Text style={styles.decisionButtonText}>{d.text}</Text>
+                  <Text style={styles.decisionButtonText}>{d.text?.trim() || `Option ${index + 1}`}</Text>
                 )}
               </TouchableOpacity>
             ))}
