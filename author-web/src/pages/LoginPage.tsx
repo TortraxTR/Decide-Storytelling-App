@@ -47,7 +47,8 @@ export default function LoginPage() {
         navigate("/stories", { replace: true });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      const message = err instanceof Error ? err.message : "Something went wrong.";
+      setError(message === "Role mismatch" ? "This account is not an Author account." : message);
     } finally {
       setLoading(false);
     }
