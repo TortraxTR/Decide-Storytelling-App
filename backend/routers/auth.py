@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr
@@ -19,6 +19,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    role: Literal["Author", "Reader"]
 
 
 class LoginResponse(BaseModel):
@@ -42,13 +43,13 @@ async def register(payload: RegisterRequest):
         "passwordHash": hash_password(payload.password),
         "username": payload.username,
     }
-    
+
     user = await db.user.create(data=data)
     if payload.role == "Author":
         await db.author.create(data={"userId": user.id})
     else:
         await db.reader.create(data={"userId": user.id})
-    
+
     return RegisterResponse(user_id=user.id)
 
 
@@ -57,6 +58,15 @@ async def login(payload: LoginRequest):
     user = await db.user.find_unique(where={"email": payload.email})
     if not user or not user.passwordHash or not verify_password(payload.password, user.passwordHash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    if payload.role == "Author":
+        author = await db.author.find_unique(where={"userId": user.id})
+        if not author:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Role mismatch")
+    else:
+        reader = await db.reader.find_unique(where={"userId": user.id})
+        if not reader:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Role mismatch")
 
     return LoginResponse(user_id=user.id)
 

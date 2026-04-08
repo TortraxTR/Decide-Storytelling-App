@@ -30,7 +30,9 @@ const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
     setSubmitting(true);
 
     try {
-      const { user_id } = await login(email.trim(), password);
+      const apiRole = role === 'author' ? 'Author' : 'Reader';
+      const { user_id } = await login(email.trim(), password, apiRole);
+
       if (role === 'reader') {
         const readers = await getReaderByUserId(user_id);
         let readerId: string;
