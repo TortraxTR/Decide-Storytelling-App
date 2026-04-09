@@ -7,11 +7,10 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
-  ScrollView,
+  FlatList,
   Alert,
 } from 'react-native';
-
-import { SafeAreaView } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 
 import {
   fetchStory,
@@ -22,26 +21,62 @@ import {
   createReader,
   createOrResumeSession,
   advanceSession,
-  deleteSession
+  deleteSession,
 } from '../api';
+
+import { LiquidScreen } from '../components/ui/LiquidScreen';
+import { GlassCard } from '../components/ui/GlassCard';
+import { textStyles } from '../theme/typography';
+import { colors } from '../theme/colors';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 type Node = { id: string; assetKey: string; isStart: boolean; isEnd: boolean };
-type Decision = { id: string; text: string; sourceNodeId: string; targetNodeId: string };
+type Decision = {
+  id: string;
+  text: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+};
 type RenderNode = { node: Node; mediaUrl: string };
-
 
 type HistoryItem = {
   id: string;
-  renderNodes: RenderNode[]; // Peş peşe gelen resim dizisi
-  tailNode: Node;            // Karar vereceğimiz veya biten son düğüm
-  decisions: Decision[];     // Ekranda gösterilecek butonlar
-  selectedDecision?: Decision; // Seçilen karar
+  renderNodes: RenderNode[];
+  tailNode: Node;
+  decisions: Decision[];
+  selectedDecision?: Decision;
 };
 
-export default function EpisodeScreen({ route }: any) {
-  const { storyId, episodeId: selectedEpisodeId, title, userId } = route.params || {};
+type EpisodeRouteParams = {
+  storyId?: string;
+  episodeId?: string;
+  title?: string;
+  episodeTitle?: string;
+  storyTitle?: string;
+  userId?: string;
+};
+
+type Props = {
+  route: { params?: EpisodeRouteParams };
+};
+
+const EpisodeScreen: React.FC<Props> = ({ route }) => {
+  const { userId: authUserId } = useAuth();
+
+  const params = route?.params ?? {};
+  const {
+    storyId,
+    episodeId: selectedEpisodeId,
+    title,
+    episodeTitle,
+    storyTitle,
+    userId: routeUserId,
+  } = params;
+
+  const effectiveUserId = routeUserId ?? authUserId ?? null;
+  const displayTitle = episodeTitle ?? title ?? storyTitle ?? 'Episode';
 
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
@@ -50,24 +85,25 @@ export default function EpisodeScreen({ route }: any) {
   const [episodeId, setEpisodeId] = useState('');
   const [sessionId, setSessionId] = useState('');
 
-  //History state ve Scroll ref
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const scrollViewRef = useRef<ScrollView>(null);
-  
+  // const scrollViewRef = useRef<ScrollView>(null);
+
   const episodeNodesByIdRef = useRef<Record<string, Node>>({});
 
-  const endSessionIfNeeded = useCallback(async (node: Node, sid?: string) => {
-    if (!sid || !node.isEnd) return;
-    try {
-      await deleteSession(sid);
-    } catch {
-      // Hata olsa da yoksayıyoruz
-    } finally {
-      setSessionId(prev => (prev === sid ? '' : prev));
-    }
-  }, []);
+  const endSessionIfNeeded = useCallback(
+    async (node: Node, sid?: string) => {
+      if (!sid || !node.isEnd) return;
+      try {
+        await deleteSession(sid);
+      } catch {
+        // ignore
+      } finally {
+        setSessionId(prev => (prev === sid ? '' : prev));
+      }
+    },
+    [],
+  );
 
-  //  History dizisine eklenmek üzere bir "paket" dönüyor
   const hydrateLinearPath = useCallback(
     async (startNode: Node, epId: string, sid?: string): Promise<HistoryItem> => {
       const visited = new Set<string>();
@@ -91,7 +127,6 @@ export default function EpisodeScreen({ route }: any) {
 
         const outgoing = await fetchDecisionsForNode(epId, node.id);
 
-        // Eğer sadece 1 seçenek varsa (otomatik atlama mantığı)
         if (outgoing.length === 1) {
           const edge = outgoing[0];
           if (sid) {
@@ -106,7 +141,6 @@ export default function EpisodeScreen({ route }: any) {
           continue;
         }
 
-        // Birden fazla seçenek varsa dur ve kullanıcıya sor
         tailNode = node;
         tailDecisions = outgoing;
         break;
@@ -114,15 +148,14 @@ export default function EpisodeScreen({ route }: any) {
 
       await endSessionIfNeeded(tailNode, sid);
 
-      // Yeni bloğu geri döndür
       return {
         id: Date.now().toString() + tailNode.id,
         renderNodes: collected,
-        tailNode: tailNode,
+        tailNode,
         decisions: tailDecisions,
       };
     },
-    [endSessionIfNeeded]
+    [endSessionIfNeeded],
   );
 
   useEffect(() => {
@@ -134,12 +167,18 @@ export default function EpisodeScreen({ route }: any) {
         let targetEpisodeId = selectedEpisodeId;
 
         if (!targetEpisodeId) {
+          if (!storyId) {
+            setError('Episode information is missing.');
+            return;
+          }
           const story = await fetchStory(storyId);
           if (!story.episodes || story.episodes.length === 0) {
             setError('This story has no episodes yet.');
             return;
           }
-          const firstEpisode = story.episodes.sort((a: any, b: any) => a.order - b.order)[0];
+          const firstEpisode = story.episodes.sort(
+            (a: any, b: any) => a.order - b.order,
+          )[0];
           targetEpisodeId = firstEpisode.id;
         }
 
@@ -157,12 +196,13 @@ export default function EpisodeScreen({ route }: any) {
         }
 
         let readerId: string | null = null;
-        if (userId) {
-          const readers = await getReaderByUserId(userId);
+
+        if (effectiveUserId) {
+          const readers = await getReaderByUserId(effectiveUserId);
           if (readers.length > 0) {
             readerId = readers[0].id;
           } else {
-            const newReader = await createReader(userId);
+            const newReader = await createReader(effectiveUserId);
             readerId = newReader.id;
           }
         }
@@ -170,19 +210,24 @@ export default function EpisodeScreen({ route }: any) {
         let firstBlock: HistoryItem;
 
         if (readerId) {
-          const session = await createOrResumeSession(readerId, targetEpisodeId, startNode.id);
+          const session = await createOrResumeSession(
+            readerId,
+            targetEpisodeId,
+            startNode.id,
+          );
           setSessionId(session.id);
-          const resumedNode = nodes.find(n => n.id === session.currentNodeId) ?? startNode;
-          // İlk bloğu oluştur
-          firstBlock = await hydrateLinearPath(resumedNode, targetEpisodeId, session.id);
+          const resumedNode =
+            nodes.find(n => n.id === session.currentNodeId) ?? startNode;
+          firstBlock = await hydrateLinearPath(
+            resumedNode,
+            targetEpisodeId,
+            session.id,
+          );
         } else {
-          // İlk bloğu oluştur (Misafir Modu)
           firstBlock = await hydrateLinearPath(startNode, targetEpisodeId);
         }
 
-        // Geçmişe ekle
         setHistory([firstBlock]);
-
       } catch (e: any) {
         setError(e.message || 'Failed to load story');
       } finally {
@@ -191,7 +236,7 @@ export default function EpisodeScreen({ route }: any) {
     };
 
     init();
-  }, [storyId, selectedEpisodeId, userId, hydrateLinearPath]);
+  }, [storyId, selectedEpisodeId, effectiveUserId, hydrateLinearPath]);
 
   const handleDecision = async (decision: Decision, historyIndex: number) => {
     if (advancing) return;
@@ -199,8 +244,7 @@ export default function EpisodeScreen({ route }: any) {
     try {
       setAdvancing(true);
 
-      //  WhatsApp balonunu oluştur (Geçmişe göm)
-      setHistory((prev) => {
+      setHistory(prev => {
         const newHistory = [...prev];
         newHistory[historyIndex].selectedDecision = decision;
         return newHistory;
@@ -208,7 +252,6 @@ export default function EpisodeScreen({ route }: any) {
 
       let nextNode: Node;
 
-      // İlerletme mantığı
       if (sessionId) {
         const result = await advanceSession(sessionId, decision.id);
         nextNode = result.currentNode;
@@ -217,10 +260,8 @@ export default function EpisodeScreen({ route }: any) {
         if (!nextNode) throw new Error('Next node could not be found.');
       }
 
-      // yeni resim dizisini çek ve geçmişin en altına ekle
       const nextBlock = await hydrateLinearPath(nextNode, episodeId, sessionId);
-      setHistory((prev) => [...prev, nextBlock]);
-
+      setHistory(prev => [...prev, nextBlock]);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to advance story');
     } finally {
@@ -230,39 +271,47 @@ export default function EpisodeScreen({ route }: any) {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#BB86FC" />
-      </View>
+      <LiquidScreen scrollable={false}>
+        <View style={styles.fullCenter}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Summoning this episode…</Text>
+        </View>
+      </LiquidScreen>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
+      <LiquidScreen scrollable={false}>
+        <View style={styles.fullCenter}>
+          <GlassCard elevated>
+            <Text style={styles.errorText}>{error}</Text>
+          </GlassCard>
+        </View>
+      </LiquidScreen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <LiquidScreen scrollable={false}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text style={textStyles.label}>Episode</Text>
+        <Text style={[textStyles.headline, styles.headerTitle]} numberOfLines={2}>
+          {displayTitle}
+        </Text>
       </View>
 
-      <ScrollView
-        ref={scrollViewRef}
+      <FlatList
+        data={history}
+        keyExtractor={(item) => item.id}
+        style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        // onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-      >
-        {history.map((item, index) => {
+        renderItem={({ item, index }) => {
           const isLastItem = index === history.length - 1;
 
           return (
-            <View key={item.id} style={styles.historyBlock}>
-              
-              {/*  otomatik atlanan resimleri basma mantığı */}
+            <View style={styles.historyBlock}>
               {item.renderNodes.map((rn, rnIndex) => (
                 <Image
                   key={`${rn.node.id}-${rnIndex}`}
@@ -272,108 +321,160 @@ export default function EpisodeScreen({ route }: any) {
                 />
               ))}
 
-              {/* Hikaye Sonuysa */}
               {item.tailNode.isEnd && (
                 <View style={styles.endContainer}>
                   <Text style={styles.endText}>— The End —</Text>
                 </View>
               )}
 
-              {/* Karar Aşaması ve  Balonlar */}
               {!item.tailNode.isEnd && (
                 <View style={styles.decisionContainer}>
                   {item.selectedDecision ? (
-                    <View style={styles.selectedBubble}>
-                      <Text style={styles.selectedBubbleText}>{item.selectedDecision.text}</Text>
+                    <View style={styles.selectedBubbleWrapper}>
+                      <GlassCard style={styles.selectedBubble}>
+                        <Text style={styles.selectedBubbleText}>
+                          {item.selectedDecision.text}
+                        </Text>
+                      </GlassCard>
                     </View>
-                  ) : isLastItem ? (
-                    <>
-                      
-                      {item.decisions.length > 1 && (
-                        <Text style={styles.decisionPrompt}>What do you do?</Text> )}
+                  ) : (
+                    isLastItem && (
+                      <GlassCard style={styles.choicesCard}>
+                        {item.decisions.length > 1 && (
+                          <Text style={styles.decisionPrompt}>
+                            What do you do?
+                          </Text>
+                        )}
                         {item.decisions.length > 0 ? (
-                        item.decisions.map((d) => (
-                          <TouchableOpacity
-                            key={d.id}
-                            style={[styles.decisionButton, advancing && styles.decisionButtonDisabled]}
-                            onPress={() => handleDecision(d, index)}
-                            disabled={advancing}
-                          >
-                            {advancing ? (
-                              <ActivityIndicator color="#121212" />
-                            ) : (
-                              <Text style={styles.decisionButtonText}>{d.text}</Text>
-                            )}
-                          </TouchableOpacity>
-                        ))
-                      ) : (
-                        <Text style={styles.decisionPrompt}>No paths forward from here.</Text>
-                      )}
-                    </>
-                  ) : null}
+                          item.decisions.map((d) => (
+                            <TouchableOpacity
+                              key={d.id}
+                              style={styles.decisionButton}
+                              onPress={() => handleDecision(d, index)}
+                              disabled={advancing}
+                            >
+                              <LinearGradient
+                                colors={[colors.primary, colors.primaryContainer]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={[
+                                  styles.decisionGradient,
+                                  advancing && styles.decisionGradientDisabled,
+                                ]}
+                              >
+                                {advancing ? (
+                                  <ActivityIndicator color="#07006c" size="small" />
+                                ) : (
+                                  <Text style={styles.decisionButtonText}>{d.text}</Text>
+                                )}
+                              </LinearGradient>
+                            </TouchableOpacity>
+                          ))
+                        ) : (
+                          <Text style={styles.decisionPrompt}>
+                            No paths forward from here.
+                          </Text>
+                        )}
+                      </GlassCard>
+                    )
+                  )}
                 </View>
               )}
             </View>
           );
-        })}
-      </ScrollView>
-    </SafeAreaView>
+        }}
+      />
+    </LiquidScreen>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#121212' },
-  centered: { justifyContent: 'center', alignItems: 'center' },
-  header: {
-    padding: 15,
-    backgroundColor: '#1E1E1E',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
+  fullCenter: {
+    flex: 1,
     alignItems: 'center',
-  },
-  headerTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
-  scrollContent: { paddingBottom: 40 },
-  historyBlock: { marginBottom: 0 },
-  panelImage: {
-    width: width,
-    height: width * 1.33,
-    backgroundColor: '#1E1E1E',
-  },
-  decisionContainer: {
-    padding: 20,
-    backgroundColor: '#121212',
-    alignItems: 'center',
-  },
-  decisionPrompt: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  decisionButton: {
-    backgroundColor: '#BB86FC',
-    width: '80%',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    alignItems: 'center',
-    minHeight: 50,
     justifyContent: 'center',
   },
-  decisionButtonDisabled: { opacity: 0.6 },
-  decisionButtonText: { color: '#121212', fontSize: 16, fontWeight: 'bold' },
-  selectedBubble: {
-    backgroundColor: '#BB86FC',
-    padding: 15,
-    borderRadius: 20,
-    alignSelf: 'flex-end',
-    marginTop: 10,
-    marginBottom: 20,
-    maxWidth: '85%',
+  loadingText: {
+    ...textStyles.bodySm,
+    marginTop: 12,
+    color: colors.onSurfaceVariant,
   },
-  selectedBubbleText: { color: '#121212', fontSize: 16, fontWeight: 'bold' },
-  endContainer: { padding: 40, alignItems: 'center' },
-  endText: { color: '#BB86FC', fontSize: 20, fontWeight: 'bold', fontStyle: 'italic' },
-  errorText: { color: '#FF6B6B', fontSize: 16, textAlign: 'center', margin: 20 },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  headerTitle: {
+    marginTop: 4,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  historyBlock: {
+    marginBottom: 0,
+  },
+  panelImage: {
+    width,
+    height: width * 1.33,
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  decisionContainer: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  choicesCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  decisionPrompt: {
+    ...textStyles.titleSm,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  decisionButton: {
+    marginBottom: 10,
+  },
+  decisionGradient: {
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  decisionGradientDisabled: {
+    opacity: 0.6,
+  },
+  decisionButtonText: {
+    ...textStyles.body,
+    color: '#07006c',
+    fontFamily: 'Inter-SemiBold',
+  },
+  selectedBubbleWrapper: {
+    alignItems: 'flex-end',
+  },
+  selectedBubble: {
+    maxWidth: '85%',
+    backgroundColor: colors.surfaceContainerHigh,
+  },
+  selectedBubbleText: {
+    ...textStyles.body,
+  },
+  endContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
+  endText: {
+    ...textStyles.title,
+    color: colors.secondary,
+    fontStyle: 'italic',
+  },
+  errorText: {
+    ...textStyles.bodySm,
+    color: '#ff4d6a',
+    textAlign: 'center',
+  },
 });
+
+export default EpisodeScreen;

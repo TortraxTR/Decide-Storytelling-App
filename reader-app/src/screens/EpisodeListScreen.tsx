@@ -1,164 +1,132 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  ListRenderItem,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { LiquidScreen } from '../components/ui/LiquidScreen';
+import { GlassCard } from '../components/ui/GlassCard';
+import { textStyles } from '../theme/typography';
+import { colors } from '../theme/colors';
 import { fetchStory } from '../api';
 
 type Episode = {
   id: string;
   title: string;
-  summary?: string;
-  publishedAt?: string;
+  order: number;
 };
 
-type EpisodeListScreenProps = {
+type Props = {
   navigation: any;
-  route: {
-    params?: {
-      storyId?: string;
-      storyTitle?: string;
-      userId?: string;
-    };
-  };
+  route: { params: { storyId: string; storyTitle: string } };
 };
 
-const EpisodeListScreen: React.FC<EpisodeListScreenProps> = ({ navigation, route }) => {
-  const storyId = route?.params?.storyId ?? '';
-  const storyTitle = route?.params?.storyTitle ?? 'Story';
-  const userId = route?.params?.userId;
+const EpisodeListScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { storyId, storyTitle } = route.params;
 
   const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchEpisodes = useCallback(async () => {
-    if (!storyId) {
-      setError('Story ID is missing');
-      setEpisodes([]);
-      return;
-    }
+  useEffect(() => {
+    let cancelled = false;
 
-    try {
+    const load = async () => {
       setError(null);
-      const story = await fetchStory(storyId);
-      
-      const episodeList: Episode[] = (story.episodes || []).map((ep: any) => ({
-        id: ep.id,
-        title: ep.title,
-        summary: ep.summary,
-        publishedAt: ep.publishedAt,
-      }));
-      
-      setEpisodes(episodeList);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load episodes';
-      setError(errorMessage);
-      setEpisodes([]);
-    }
+      setLoading(true);
+      try {
+        const story = await fetchStory(storyId);
+        if (!cancelled) {
+          const sorted = [...story.episodes].sort(
+            (a, b) => (a.order ?? 0) - (b.order ?? 0),
+          );
+          setEpisodes(sorted);
+        }
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || 'Failed to load episodes');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [storyId]);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      await fetchEpisodes();
-      setLoading(false);
-    };
-    load();
-  }, [fetchEpisodes]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchEpisodes();
-    setRefreshing(false);
-  }, [fetchEpisodes]);
-
-  const openEpisode = (episode: Episode) => {
-    navigation.navigate('Episode', {
-      storyId,
-      episodeId: episode.id,
-      title: episode.title,
-      userId,
-    });
-  };
-
-  const renderItem: ListRenderItem<Episode> = ({ item }) => (
-    <Pressable style={styles.card} onPress={() => openEpisode(item)}>
-      <Text style={styles.cardTitle}>{item.title}</Text>
-      {!!item.summary && <Text style={styles.cardSummary}>{item.summary}</Text>}
-      {!!item.publishedAt && <Text style={styles.cardDate}>Published: {item.publishedAt}</Text>}
-    </Pressable>
-  );
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{storyTitle}</Text>
-        <Text style={styles.subtitle}>Episodes</Text>
+    <LiquidScreen>
+      <View style={styles.hero}>
+        <Text style={textStyles.label}>Episodes</Text>
+        <Text style={[textStyles.headline, styles.title]}>{storyTitle}</Text>
       </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#C7D2FE" />
-          <Text style={styles.loadingText}>Loading episodes...</Text>
+      {loading && (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={styles.loadingText}>Fetching episodes…</Text>
         </View>
-      ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable style={styles.retryButton} onPress={onRefresh}>
-            <Text style={styles.retryText}>Retry</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <FlatList
-          data={episodes}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={episodes.length === 0 ? styles.emptyContainer : styles.listContent}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No episodes found for this story.</Text>
-          }
-        />
       )}
-    </SafeAreaView>
+
+      {error && !loading && <Text style={styles.error}>{error}</Text>}
+
+      <FlatList
+        data={episodes}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate('Episode', {
+                episodeId: item.id,
+                episodeTitle: item.title,
+                storyTitle,
+              })
+            }
+            style={styles.itemWrapper}
+          >
+            <GlassCard elevated>
+              <Text style={textStyles.meta}>Episode {item.order}</Text>
+              <Text style={[textStyles.title, styles.episodeTitle]}>
+                {item.title}
+              </Text>
+            </GlassCard>
+          </TouchableOpacity>
+        )}
+      />
+    </LiquidScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B1020' },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
-  title: { color: '#F5F7FF', fontSize: 24, fontWeight: '700' },
-  subtitle: { color: '#98A2B3', fontSize: 14, marginTop: 4 },
-
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { color: '#C7D2FE', marginTop: 6 },
-  errorText: { color: '#FF6B6B', fontSize: 15, textAlign: 'center', paddingHorizontal: 20 },
-  retryButton: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#2E3A66', borderRadius: 8 },
-  retryText: { color: '#C7D2FE', fontWeight: '600' },
-
-  listContent: { padding: 16, gap: 12 },
-  emptyContainer: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyText: { color: '#98A2B3', fontSize: 15, textAlign: 'center' },
-
-  card: {
-    backgroundColor: '#111833',
-    borderColor: '#1F2A4D',
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
+  hero: {
+    marginTop: 8,
+    marginBottom: 16,
   },
-  cardTitle: { color: '#EEF2FF', fontSize: 17, fontWeight: '600' },
-  cardSummary: { color: '#B4C0E0', marginTop: 6, lineHeight: 20 },
-  cardDate: { color: '#8FA2D8', marginTop: 10, fontSize: 12 },
+  title: {
+    marginTop: 4,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  loadingText: {
+    ...textStyles.meta,
+    color: colors.onSurfaceVariant,
+  },
+  error: {
+    ...textStyles.bodySm,
+    color: '#ff4d6a',
+    marginBottom: 12,
+  },
+  listContent: {
+    paddingBottom: 32,
+  },
+  itemWrapper: {
+    marginBottom: 14,
+  },
+  episodeTitle: {
+    marginTop: 4,
+  },
 });
 
 export default EpisodeListScreen;

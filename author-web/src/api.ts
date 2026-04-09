@@ -125,7 +125,7 @@ export async function register(
 export async function login(email: string, password: string): Promise<AuthResponse> {
     return request<AuthResponse>("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, role: "Author" }),
     });
 }
 

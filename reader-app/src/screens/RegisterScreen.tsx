@@ -1,112 +1,167 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { register } from '../api';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { LiquidScreen } from '../components/ui/LiquidScreen';
+import { GlassCard } from '../components/ui/GlassCard';
+import { GradientButton } from '../components/ui/GradientButton';
+import { TextField } from '../components/ui/TextField';
+import { textStyles } from '../theme/typography';
+import { colors } from '../theme/colors';
+import { register, getReaderByUserId, createReader } from '../api';
+import { useAuth, Role } from '../context/AuthContext';
 
-export default function RegisterScreen({ route,navigation }: any) {
-  const [username, setUsername] = useState('');
+type Props = {
+  navigation: any;
+  route: { params?: { role?: Role } };
+};
+
+const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { setAuth } = useAuth();
+  const role: Role = route.params?.role ?? 'reader';
+
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const { role } = route.params || {};
 
-  const handleRegister = async () => {
-    if (password !== confirmPassword) {
-      Alert.alert('Passwords does not match');
-      return;
-    }
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
 
     try {
-      const data = await register(email, password, username, role);
-      const userId = data.user_id;
-      navigation.navigate(role === 'Author' ? 'AuthorDashboard' : 'Home', { userId });
-    } catch (error: any) {
-      Alert.alert('Registration Failed', error?.message ?? 'Unable to register');
+      const { user_id } = await register(
+        email.trim(),
+        password,
+        name.trim(),
+        role,
+      );
+
+      if (role === 'reader') {
+        const readers = await getReaderByUserId(user_id);
+        let readerId: string;
+
+        if (readers.length > 0) {
+          readerId = readers[0].id;
+        } else {
+          const created = await createReader(user_id);
+          readerId = created.id;
+        }
+
+        setAuth({ userId: user_id, readerId, role: 'reader' });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        });
+      } else {
+        setAuth({ userId: user_id, readerId: null, role: 'author' });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'AuthorDashboard' }],
+        });
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Registration failed');
+    } finally {
+      setSubmitting(false);
     }
   };
-  
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create New Account</Text>
+    <LiquidScreen>
+      <View style={styles.hero}>
+        <Text style={textStyles.label}>Create profile</Text>
+        <Text style={[textStyles.headline, styles.title]}>
+          Claim your seat in the audience—or on stage.
+        </Text>
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Username"
-        placeholderTextColor="#888"
-        value={username}
-        onChangeText={setUsername}
-        keyboardType="default"
-        autoCapitalize="none"
-      />
+      <GlassCard elevated style={styles.card}>
+        <TextField
+          label="Display name"
+          value={name}
+          onChangeText={setName}
+        />
+        <TextField
+          label="Email"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextField
+          label="Password"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="E-mail"
-        placeholderTextColor="#888"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+        {error && <Text style={styles.error}>{error}</Text>}
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+        <GradientButton
+          label={submitting ? 'Opening the doors…' : 'Begin the story'}
+          onPress={handleSubmit}
+          style={styles.btn}
+          disabled={submitting}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Confirm password"
-        placeholderTextColor="#888"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-      />
+        {submitting && (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={colors.primary} size="small" />
+            <Text style={styles.loadingText}>Configuring your storyline…</Text>
+          </View>
+        )}
+      </GlassCard>
 
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Kayıt Ol</Text>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('Login', { role })}
+      >
+        <Text style={[textStyles.bodySm, styles.switchText]}>
+          Already have an account?{' '}
+          <Text style={{ color: colors.secondary }}>Sign in</Text>
+        </Text>
       </TouchableOpacity>
-    </View>
+    </LiquidScreen>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#121212',
+  hero: {
+    marginTop: 12,
+    marginBottom: 16,
   },
   title: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 40,
-    textAlign: 'center',
+    marginTop: 4,
   },
-  input: {
-    backgroundColor: '#1E1E1E',
-    color: '#FFFFFF',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#333',
-    fontSize: 16,
+  card: {
+    marginBottom: 16,
   },
-  button: {
-    backgroundColor: '#03DAC6',
-    padding: 15,
-    borderRadius: 8,
+  btn: {
+    marginTop: 16,
+    width: '100%',
+  },
+  error: {
+    marginTop: 8,
+    color: '#ff4d6a',
+    ...textStyles.bodySm,
+  },
+  loadingRow: {
+    marginTop: 8,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    gap: 8,
   },
-  buttonText: {
-    color: '#121212',
-    fontSize: 18,
-    fontWeight: 'bold',
+  loadingText: {
+    ...textStyles.meta,
+    color: colors.onSurfaceVariant,
+  },
+  switchText: {
+    textAlign: 'center',
+    marginTop: 8,
+    color: colors.onSurfaceVariant,
   },
 });
+
+export default RegisterScreen;
