@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const DEFAULT_API_BASE = "https://mswgurkeeq.eu-central-1.awsapprunner.com";
+const API_BASE = import.meta.env.VITE_API_URL?.trim() || DEFAULT_API_BASE;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,6 +46,8 @@ export interface EpisodeNodeDto {
     assetKey: string;
     assetWidth: number | null;
     assetHeight: number | null;
+    canvasX?: number | null;
+    canvasY?: number | null;
     isStart: boolean;
     isEnd: boolean;
 }
@@ -55,6 +58,15 @@ export interface DecisionDto {
     sourceNodeId: string;
     targetNodeId: string;
     text: string | null;
+}
+
+export interface ReadSessionDto {
+    id: string;
+    readerId: string;
+    episodeId: string;
+    currentNodeId: string;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface PresignResponse {
@@ -72,7 +84,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         ...((options.headers as Record<string, string>) ?? {}),
     };
 
-    const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    let res: Response;
+    try {
+        res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    } catch {
+        throw new Error("Cannot reach the server. Please check your connection or try again later.");
+    }
 
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -96,14 +113,19 @@ export async function register(
 ): Promise<AuthResponse> {
     return request<AuthResponse>("/auth/register", {
         method: "POST",
-        body: JSON.stringify({ email, password, username: username || undefined }),
+        body: JSON.stringify({
+            email,
+            password,
+            username: username || undefined,
+            role: "Author",
+        }),
     });
 }
 
 export async function login(email: string, password: string): Promise<AuthResponse> {
     return request<AuthResponse>("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, role: "Author" }),
     });
 }
 
@@ -164,6 +186,10 @@ export async function deleteStory(storyId: string): Promise<void> {
     return request<void>(`/stories/${storyId}`, { method: "DELETE" });
 }
 
+export async function getStory(storyId: string): Promise<StoryDto> {
+    return request<StoryDto>(`/stories/${storyId}`);
+}
+
 // ---------------------------------------------------------------------------
 // Episodes
 // ---------------------------------------------------------------------------
@@ -213,6 +239,8 @@ export async function createNode(payload: {
     assetKey: string;
     assetWidth?: number;
     assetHeight?: number;
+    canvasX?: number;
+    canvasY?: number;
     isStart?: boolean;
     isEnd?: boolean;
 }): Promise<EpisodeNodeDto> {
@@ -228,6 +256,8 @@ export async function updateNode(
         assetKey: string;
         assetWidth: number;
         assetHeight: number;
+        canvasX: number;
+        canvasY: number;
         isStart: boolean;
         isEnd: boolean;
     }>
@@ -305,4 +335,17 @@ export async function updateDecision(
 
 export async function deleteDecision(decisionId: string): Promise<void> {
     return request<void>(`/decisions/${decisionId}`, { method: "DELETE" });
+}
+
+// ---------------------------------------------------------------------------
+// Read sessions
+// ---------------------------------------------------------------------------
+
+export async function listSessions(episodeId?: string): Promise<ReadSessionDto[]> {
+    const params = episodeId ? `?episode_id=${episodeId}` : "";
+    return request<ReadSessionDto[]>(`/sessions/${params}`);
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+    return request<void>(`/sessions/${sessionId}`, { method: "DELETE" });
 }

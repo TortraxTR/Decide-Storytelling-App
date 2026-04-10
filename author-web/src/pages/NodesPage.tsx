@@ -9,7 +9,12 @@ function requireAuthorId(): string {
     return authorId;
 }
 
-const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE ?? "";
+const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE;
+
+function assetPreviewHref(assetKey: string) {
+    if (!S3_PUBLIC_BASE) return null;
+    return `${S3_PUBLIC_BASE.replace(/\/+$/, "")}/${assetKey.replace(/^\/+/, "")}`;
+}
 
 export default function NodesPage() {
     useMemo(() => requireAuthorId(), []);
@@ -151,13 +156,17 @@ export default function NodesPage() {
                         {assetKey.trim() ? (
                             <span className="muted">
                                 Preview:{" "}
-                                <a
-                                    href={`${S3_PUBLIC_BASE.replace(/\/+$/, "")}/${assetKey.replace(/^\/+/, "")}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    open image
-                                </a>
+                                {assetPreviewHref(assetKey) ? (
+                                    <a
+                                        href={assetPreviewHref(assetKey)!}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        open image
+                                    </a>
+                                ) : (
+                                    "unavailable without VITE_S3_PUBLIC_BASE"
+                                )}
                             </span>
                         ) : null}
                     </label>
@@ -214,4 +223,3 @@ export default function NodesPage() {
         </div>
     );
 }
-

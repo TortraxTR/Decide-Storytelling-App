@@ -1,286 +1,329 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    createStory,
-    deleteStory,
-    listStories,
-    updateStory,
-    presignStoryUpload,
-    type PublishStatus,
-    type StoryDto,
+  createStory,
+  deleteStory,
+  listEpisodes,
+  listStories,
+  presignStoryUpload,
+  updateStory,
+  type PublishStatus,
+  type StoryDto,
 } from "../api";
 import "./StoriesPage.css";
 
-const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE ?? "";
-
-function thumbUrl(key: string | null | undefined) {
-    if (!key) return null;
-    return `${S3_PUBLIC_BASE.replace(/\/+$/, "")}/${key.replace(/^\/+/, "")}`;
-}
-
-function requireAuthorId(): string {
-    const authorId = localStorage.getItem("author_id");
-    if (!authorId) throw new Error("Missing author_id. Please sign in again.");
-    return authorId;
-}
-
+const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE;
+const STATUS_LABEL: Record<PublishStatus, string> = { DRAFT: "Draft", PUBLISHED: "Published", ARCHIVED: "Archived" };
 const STATUS_CYCLE: PublishStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
-const STATUS_LABEL: Record<PublishStatus, string> = {
-    DRAFT: "Draft",
-    PUBLISHED: "Published",
-    ARCHIVED: "Archived",
-};
-const STATUS_NEXT: Record<PublishStatus, string> = {
-    DRAFT: "Publish →",
-    PUBLISHED: "Archive →",
-    ARCHIVED: "→ Draft",
-};
+
+interface StoryStats {
+  total: number;
+  published: number;
+  drafts: number;
+  episodes: number;
+}
+
+function requireAuthorId() {
+  const authorId = localStorage.getItem("author_id");
+  if (!authorId) throw new Error("Missing author_id. Please sign in again.");
+  return authorId;
+}
+
+function storyThumb(key: string | null | undefined) {
+  if (!key || !S3_PUBLIC_BASE) return null;
+  return `${S3_PUBLIC_BASE.replace(/\/+$/, "")}/${key.replace(/^\/+/, "")}`;
+}
+
+function explainUploadError(err: unknown) {
+  if (err instanceof TypeError) {
+    return "Upload was blocked before reaching S3. This is usually an S3 CORS configuration issue for the current frontend origin.";
+  }
+  return err instanceof Error ? err.message : "Failed to upload file.";
+}
 
 export default function StoriesPage() {
-    const navigate = useNavigate();
-    const authorId = useMemo(() => requireAuthorId(), []);
+  const navigate = useNavigate();
+  const authorId = useMemo(() => requireAuthorId(), []);
+  const [stories, setStories] = useState<StoryDto[]>([]);
+  const [stats, setStats] = useState<StoryStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
-    const [stories, setStories] = useState<StoryDto[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+  async function refresh() {
+    setLoading(true);
+    setError("");
 
-    const [title, setTitle] = useState("");
-    const [description, setDescription] = useState("");
-    const [saving, setSaving] = useState(false);
+    try {
+      const storyList = await listStories(authorId);
+      const episodeCounts = await Promise.all(storyList.map((story) => listEpisodes(story.id).then((items) => items.length).catch(() => 0)));
 
-    // Per-story upload state: storyId → "uploading" | "done" | undefined
-    const [uploadingId, setUploadingId] = useState<string | null>(null);
-    // Per-story status-saving
-    const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
-
-    // Hidden file inputs keyed by storyId, stored in a map ref
-    const fileInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
-
-    async function refresh() {
-        setError("");
-        setLoading(true);
-        try {
-            const data = await listStories(authorId);
-            setStories(data);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to load stories");
-        } finally {
-            setLoading(false);
-        }
+      setStories(storyList);
+      setStats({
+        total: storyList.length,
+        published: storyList.filter((story) => story.status === "PUBLISHED").length,
+        drafts: storyList.filter((story) => story.status === "DRAFT").length,
+        episodes: episodeCounts.reduce((total, count) => total + count, 0),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load stories.");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    useEffect(() => {
-        refresh();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+  useEffect(() => {
+    void refresh();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    async function handleCreate() {
-        if (!title.trim()) return;
-        setSaving(true);
-        setError("");
-        try {
-            await createStory({
-                authorId,
-                title: title.trim(),
-                description: description.trim() || undefined,
-                status: "DRAFT",
-            });
-            setTitle("");
-            setDescription("");
-            await refresh();
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to create story");
-        } finally {
-            setSaving(false);
-        }
+  async function handleCreate() {
+    if (!title.trim()) return;
+
+    setSaving(true);
+    setError("");
+
+    try {
+      await createStory({
+        authorId,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        status: "DRAFT",
+      });
+      setTitle("");
+      setDescription("");
+      setShowCreate(false);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create story.");
+    } finally {
+      setSaving(false);
     }
+  }
 
-    async function handleDelete(storyId: string) {
-        setError("");
-        try {
-            await deleteStory(storyId);
-            await refresh();
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to delete story");
-        }
+  async function handleDelete(event: React.MouseEvent, storyId: string) {
+    event.stopPropagation();
+    if (!confirm("Delete this story and all of its episodes?")) return;
+
+    try {
+      await deleteStory(storyId);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete story.");
     }
+  }
 
-    async function handleStatusCycle(story: StoryDto) {
-        const currentIdx = STATUS_CYCLE.indexOf(story.status);
-        const nextStatus = STATUS_CYCLE[(currentIdx + 1) % STATUS_CYCLE.length];
-        setStatusSavingId(story.id);
-        setError("");
-        try {
-            const updated = await updateStory(story.id, { status: nextStatus });
-            setStories((prev) => prev.map((s) => (s.id === story.id ? updated : s)));
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to update status");
-        } finally {
-            setStatusSavingId(null);
-        }
+  async function handleStatusCycle(event: React.MouseEvent, story: StoryDto) {
+    event.stopPropagation();
+    const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(story.status) + 1) % STATUS_CYCLE.length];
+
+    setStatusSavingId(story.id);
+
+    try {
+      const updated = await updateStory(story.id, { status: nextStatus });
+      setStories((current) => current.map((item) => (item.id === story.id ? updated : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update story status.");
+    } finally {
+      setStatusSavingId(null);
     }
+  }
 
-    async function handleThumbnailFile(storyId: string, file: File) {
-        setUploadingId(storyId);
-        setError("");
-        try {
-            const { key, url } = await presignStoryUpload({
-                storyId,
-                filename: file.name,
-                contentType: file.type || undefined,
-            });
+  async function handleThumbnailUpload(storyId: string, file: File) {
+    setUploadingId(storyId);
+    setError("");
 
-            await fetch(url, {
-                method: "PUT",
-                body: file,
-                headers: { "Content-Type": file.type || "application/octet-stream" },
-            });
+    try {
+      const { key, url } = await presignStoryUpload({
+        storyId,
+        filename: file.name,
+        contentType: file.type || undefined,
+      });
 
-            const updated = await updateStory(storyId, { thumbnail: key });
-            setStories((prev) => prev.map((s) => (s.id === storyId ? updated : s)));
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Thumbnail upload failed");
-        } finally {
-            setUploadingId(null);
-        }
+      const uploadResponse = await fetch(url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      if (!uploadResponse.ok) {
+        throw new Error(`Thumbnail upload failed (${uploadResponse.status})`);
+      }
+
+      const updated = await updateStory(storyId, { thumbnail: key });
+      setStories((current) => current.map((story) => (story.id === storyId ? updated : story)));
+    } catch (err) {
+      setError(explainUploadError(err));
+    } finally {
+      setUploadingId(null);
     }
+  }
 
-    return (
-        <div className="stories-page">
-            <header className="stories-header">
-                <div className="stories-brand" onClick={() => navigate("/dashboard")} role="button" tabIndex={0}>
-                    <span>📖</span>
-                    <h1>Decide</h1>
-                </div>
-                <div className="stories-actions">
-                    <button className="btn-secondary" onClick={() => navigate("/dashboard")}>Dashboard</button>
-                    <button
-                        className="btn-logout"
-                        onClick={() => {
-                            localStorage.removeItem("user_id");
-                            localStorage.removeItem("author_id");
-                            navigate("/");
-                        }}
-                    >
-                        Sign Out
-                    </button>
-                </div>
-            </header>
-
-            <main className="stories-main">
-                <section className="card">
-                    <h2>Create story</h2>
-                    <div className="form-row">
-                        <label>
-                            Title
-                            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="My interactive story" />
-                        </label>
-                    </div>
-                    <label>
-                        Description
-                        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short summary…" />
-                    </label>
-                    <div className="form-actions">
-                        <button className="btn-primary" onClick={handleCreate} disabled={saving || !title.trim()}>
-                            {saving ? "Creating…" : "Create"}
-                        </button>
-                    </div>
-                    {error && <div className="form-error">{error}</div>}
-                </section>
-
-                <section className="card">
-                    <div className="card-title-row">
-                        <h2>Your stories</h2>
-                        <button className="btn-secondary" onClick={refresh} disabled={loading}>Refresh</button>
-                    </div>
-
-                    {loading ? (
-                        <div className="muted">Loading…</div>
-                    ) : stories.length === 0 ? (
-                        <div className="muted">No stories yet.</div>
-                    ) : (
-                        <div className="story-list">
-                            {stories.map((s) => {
-                                const imgUrl = thumbUrl(s.thumbnail);
-                                const isUploading = uploadingId === s.id;
-                                const isSavingStatus = statusSavingId === s.id;
-
-                                return (
-                                    <div className="story-item" key={s.id}>
-                                        {/* Thumbnail */}
-                                        <div className="story-thumb-col">
-                                            {imgUrl ? (
-                                                <img
-                                                    className="story-thumb"
-                                                    src={imgUrl}
-                                                    alt={s.title}
-                                                    onClick={() => fileInputRefs.current.get(s.id)?.click()}
-                                                    title="Click to change thumbnail"
-                                                />
-                                            ) : (
-                                                <button
-                                                    className="story-thumb-placeholder"
-                                                    onClick={() => fileInputRefs.current.get(s.id)?.click()}
-                                                    disabled={isUploading}
-                                                    title="Upload thumbnail"
-                                                >
-                                                    {isUploading ? "⏳" : "🖼️"}
-                                                </button>
-                                            )}
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                style={{ display: "none" }}
-                                                ref={(el) => {
-                                                    if (el) fileInputRefs.current.set(s.id, el);
-                                                    else fileInputRefs.current.delete(s.id);
-                                                }}
-                                                onChange={(e) => {
-                                                    const file = e.target.files?.[0];
-                                                    if (file) handleThumbnailFile(s.id, file);
-                                                    e.target.value = "";
-                                                }}
-                                            />
-                                        </div>
-
-                                        {/* Meta */}
-                                        <div className="story-meta">
-                                            <div className="story-title">{s.title}</div>
-                                            {s.description && (
-                                                <div className="story-desc muted">{s.description}</div>
-                                            )}
-                                            <div className="story-sub">
-                                                <span className={`pill pill-${s.status.toLowerCase()}`}>
-                                                    {STATUS_LABEL[s.status]}
-                                                </span>
-                                                <span className="muted id-chip">ID: {s.id}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Actions */}
-                                        <div className="story-buttons">
-                                            <button
-                                                className="btn-status"
-                                                onClick={() => handleStatusCycle(s)}
-                                                disabled={isSavingStatus}
-                                                title={`Click to cycle status`}
-                                            >
-                                                {isSavingStatus ? "…" : STATUS_NEXT[s.status]}
-                                            </button>
-                                            <button className="btn-secondary" onClick={() => navigate(`/stories/${s.id}/episodes`)}>
-                                                Episodes →
-                                            </button>
-                                            <button className="btn-danger" onClick={() => handleDelete(s.id)}>
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </section>
-            </main>
+  return (
+    <div className="app-page stories-page">
+      <section className="stories-hero">
+        <div className="stories-hero__copy">
+          <p className="eyebrow">Story Library</p>
+          <h1 className="page-title">Shape every story as a branching world.</h1>
+          <p className="page-subtitle">
+            Your proposal centers on interactive narrative flow. This library is the editorial layer for that engine:
+            stories at the top, episodes beneath them, and graph-based scene logic inside each episode.
+          </p>
         </div>
-    );
+
+        <div className="glass-panel stories-hero__actions">
+          <p>Start a new story shell, add a cover, then open episodes to build panels and choices.</p>
+          <button className="app-btn app-btn--primary" onClick={() => setShowCreate(true)}>
+            <span className="material-symbols-outlined">add</span>
+            New Story
+          </button>
+        </div>
+      </section>
+
+      {error && <div className="app-error">{error}</div>}
+
+      {stats && (
+        <section className="stories-stats">
+          <article className="glass-panel stories-stat">
+            <span>Total Stories</span>
+            <strong>{stats.total}</strong>
+          </article>
+          <article className="glass-panel stories-stat">
+            <span>Published</span>
+            <strong>{stats.published}</strong>
+          </article>
+          <article className="glass-panel stories-stat">
+            <span>Drafts</span>
+            <strong>{stats.drafts}</strong>
+          </article>
+          <article className="glass-panel stories-stat">
+            <span>Episodes</span>
+            <strong>{stats.episodes}</strong>
+          </article>
+        </section>
+      )}
+
+      {showCreate && (
+        <div className="app-modal-backdrop" onClick={() => setShowCreate(false)}>
+          <div className="glass-panel app-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="app-modal__head">
+              <div>
+                <h2 className="app-modal__title">Create a story</h2>
+                <p className="app-modal__copy">Set the title and story summary. You can add the cover art afterward.</p>
+              </div>
+              <button className="app-modal__close" onClick={() => setShowCreate(false)}>
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="app-modal__body">
+              <label className="app-field">
+                <span className="app-field__label">Story Title</span>
+                <input className="app-input" value={title} onChange={(event) => setTitle(event.target.value)} autoFocus />
+              </label>
+              <label className="app-field">
+                <span className="app-field__label">Description</span>
+                <textarea
+                  className="app-textarea"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="A short editorial note about the world, tone, or hook."
+                />
+              </label>
+            </div>
+            <div className="app-modal__actions">
+              <button className="app-btn app-btn--secondary" onClick={() => setShowCreate(false)}>Cancel</button>
+              <button className="app-btn app-btn--primary" onClick={handleCreate} disabled={saving || !title.trim()}>
+                {saving ? "Creating…" : "Create Story"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="glass-panel stories-empty">Loading stories…</div>
+      ) : stories.length === 0 ? (
+        <div className="glass-panel stories-empty-state">
+          <span className="material-symbols-outlined">auto_stories</span>
+          <h2>No stories yet</h2>
+          <p>Create your first story shell to start building the narrative engine.</p>
+          <button className="app-btn app-btn--primary" onClick={() => setShowCreate(true)}>
+            <span className="material-symbols-outlined">add</span>
+            Create First Story
+          </button>
+        </div>
+      ) : (
+        <section className="stories-grid">
+          {stories.map((story) => {
+            const cover = storyThumb(story.thumbnail);
+            const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(story.status) + 1) % STATUS_CYCLE.length];
+
+            return (
+              <article className="glass-panel story-card" key={story.id} onClick={() => navigate(`/stories/${story.id}/episodes`)}>
+                <div
+                  className="story-card__media"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    fileInputRefs.current.get(story.id)?.click();
+                  }}
+                >
+                  {cover ? (
+                    <img src={cover} alt={story.title} className="story-card__image" />
+                  ) : (
+                    <div className="story-card__placeholder">
+                      <span className="material-symbols-outlined">{uploadingId === story.id ? "hourglass_empty" : "image"}</span>
+                    </div>
+                  )}
+
+                  <div className="story-card__overlay">
+                    <span className="material-symbols-outlined">photo_camera</span>
+                    Change cover
+                  </div>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    ref={(element) => {
+                      if (element) fileInputRefs.current.set(story.id, element);
+                      else fileInputRefs.current.delete(story.id);
+                    }}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void handleThumbnailUpload(story.id, file);
+                      event.target.value = "";
+                    }}
+                  />
+                </div>
+
+                <div className="story-card__body">
+                  <div className="story-card__meta">
+                    <span className={`app-pill app-pill--${story.status.toLowerCase()}`}>{STATUS_LABEL[story.status]}</span>
+                    <span className="story-card__meta-dot" />
+                    <span>{new Date(story.updatedAt).toLocaleDateString()}</span>
+                  </div>
+
+                  <h2>{story.title}</h2>
+                  <p>{story.description || "No story summary yet. Add one to ground the world and tone for collaborators."}</p>
+
+                  <div className="story-card__footer">
+                    <button className="app-btn app-btn--secondary" onClick={(event) => handleStatusCycle(event, story)} disabled={statusSavingId === story.id}>
+                      {statusSavingId === story.id ? "Updating…" : `Set ${STATUS_LABEL[nextStatus]}`}
+                    </button>
+                    <button className="app-btn app-btn--danger" onClick={(event) => handleDelete(event, story.id)}>
+                      <span className="material-symbols-outlined">delete</span>
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+    </div>
+  );
 }

@@ -1,110 +1,170 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { login } from '../api';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { LiquidScreen } from '../components/ui/LiquidScreen';
+import { GlassCard } from '../components/ui/GlassCard';
+import { GradientButton } from '../components/ui/GradientButton';
+import { TextField } from '../components/ui/TextField';
+import { textStyles } from '../theme/typography';
+import { colors } from '../theme/colors';
+import { login, getReaderByUserId, createReader } from '../api';
+import { useAuth, Role } from '../context/AuthContext';
 
-export default function LoginScreen({ route, navigation }: any) {
+type Props = {
+  navigation: any;
+  route: { params?: { role?: Role } };
+};
+
+const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { setAuth } = useAuth();
+  const role: Role = route.params?.role ?? 'reader';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { role } = route.params || {};
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
-      return;
-    }
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    setLoading(true);
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+
     try {
-      const data = await login(email, password);
-      const userId = data.user_id;
+      const apiRole = role === 'author' ? 'Author' : 'Reader';
+      const { user_id } = await login(email.trim(), password, apiRole);
 
-      if (role === 'Author') {
-        navigation.navigate('AuthorDashboard', { userId });
+      if (role === 'reader') {
+        const readers = await getReaderByUserId(user_id);
+        let readerId: string;
+
+        if (readers.length > 0) {
+          readerId = readers[0].id;
+        } else {
+          const created = await createReader(user_id);
+          readerId = created.id;
+        }
+
+        setAuth({ userId: user_id, readerId, role: 'reader' });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        });
       } else {
-        navigation.navigate('Home', { userId });
+        setAuth({ userId: user_id, readerId: null, role: 'author' });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'AuthorDashboard' }],
+        });
       }
-    } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Invalid credentials');
+    } catch (e: any) {
+      setError(e?.message || 'Login failed');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome back!</Text>
+    <LiquidScreen>
+      <View style={styles.hero}>
+        <Text style={textStyles.label}>Sign in</Text>
+        <Text style={[textStyles.headline, styles.title]}>
+          Continue your unfinished chapter.
+        </Text>
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="E-mail"
-        placeholderTextColor="#888"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+      <GlassCard elevated style={styles.card}>
+        <TextField
+          label="Email"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextField
+          label="Password"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+        {error && <Text style={styles.error}>{error}</Text>}
+
+        <GradientButton
+          label={submitting ? 'Entering…' : 'Enter the story'}
+          onPress={handleSubmit}
+          style={styles.btn}
+          disabled={submitting}
+        />
+
+        {submitting && (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={colors.primary} size="small" />
+            <Text style={styles.loadingText}>Talking to the narrator…</Text>
+          </View>
+        )}
+
+        <TouchableOpacity onPress={() => {}} style={styles.tertiary}>
+          <Text style={[textStyles.bodySm, styles.tertiaryText]}>
+            Forgot your password?
+          </Text>
+        </TouchableOpacity>
+      </GlassCard>
 
       <TouchableOpacity
-        style={styles.button}
-        onPress={handleLogin}
-        disabled={loading}
+        onPress={() => navigation.navigate('Register', { role })}
       >
-        {loading ? (
-          <ActivityIndicator color="#121212" />
-        ) : (
-          <Text style={styles.buttonText}>Login</Text>
-        )}
+        <Text style={[textStyles.bodySm, styles.switchText]}>
+          New here?{' '}
+          <Text style={{ color: colors.secondary }}>Create an account</Text>
+        </Text>
       </TouchableOpacity>
-    </View>
+    </LiquidScreen>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#121212',
+  hero: {
+    marginTop: 12,
+    marginBottom: 16,
   },
   title: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 40,
-    textAlign: 'center',
+    marginTop: 4,
   },
-  input: {
-    backgroundColor: '#1E1E1E',
-    color: '#FFFFFF',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#333',
-    fontSize: 16,
+  card: {
+    marginBottom: 16,
   },
-  button: {
-    backgroundColor: '#BB86FC',
-    padding: 15,
-    borderRadius: 8,
+  btn: {
+    marginTop: 16,
+    width: '100%',
+  },
+  error: {
+    marginTop: 8,
+    color: '#ff4d6a',
+    ...textStyles.bodySm,
+  },
+  loadingRow: {
+    marginTop: 8,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
-    height: 55,
-    justifyContent: 'center'
+    gap: 8,
   },
-  buttonText: {
-    color: '#121212',
-    fontSize: 18,
-    fontWeight: 'bold',
+  loadingText: {
+    ...textStyles.meta,
+    color: colors.onSurfaceVariant,
+  },
+  tertiary: {
+    marginTop: 12,
+    alignItems: 'flex-end',
+  },
+  tertiaryText: {
+    color: colors.secondary,
+  },
+  switchText: {
+    textAlign: 'center',
+    marginTop: 8,
+    color: colors.onSurfaceVariant,
   },
 });
+
+export default LoginScreen;

@@ -2,11 +2,15 @@ import { API_BASE_URL as BASE_URL, S3_BUCKET_URL } from './config';
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
-export const login = async (email: string, password: string) => {
+export const login = async (
+  email: string,
+  password: string,
+  role: 'Author' | 'Reader'
+) => {
   const response = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, role }),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.detail || 'Login failed');
@@ -59,7 +63,7 @@ export const createReader = async (userId: string) => {
 
 export const fetchStories = async () => {
   try {
-    const response = await fetch(`${BASE_URL}/stories/`);
+    const response = await fetch(`${BASE_URL}/stories/?publish_status=PUBLISHED`);
     if (!response.ok) return [];
     const data = await response.json();
     return data.map((story: any) => ({
@@ -147,4 +151,14 @@ export const advanceSession = async (sessionId: string, decisionId: string) => {
     currentNodeId: string;
     currentNode: { id: string; assetKey: string; isStart: boolean; isEnd: boolean };
   };
+};
+
+export const deleteSession = async (sessionId: string) => {
+  const response = await fetch(`${BASE_URL}/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.detail || 'Failed to delete session');
+  }
 };

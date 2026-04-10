@@ -1,0 +1,160 @@
+.episodes-page {
+  display: grid;
+  gap: 28px;
+}
+
+.episodes-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 360px);
+  gap: 20px;
+  align-items: end;
+}
+
+.episodes-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--on-surface-variant);
+}
+
+.episodes-story-meta {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 28px;
+}
+
+.episodes-story-meta p {
+  margin: 0;
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.episodes-list {
+  display: grid;
+  gap: 16px;
+}
+
+.episode-card {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 20px;
+  padding: 20px;
+  border-radius: 28px;
+  cursor: pointer;
+}
+
+.episode-card__index {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(192, 193, 255, 0.16), rgba(128, 131, 255, 0.06));
+  color: var(--primary);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 46px;
+  line-height: 1;
+}
+
+.episode-card__content {
+  display: grid;
+  gap: 18px;
+}
+
+.episode-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+}
+
+.episode-card__eyebrow {
+  margin: 0 0 10px;
+  color: var(--secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.episode-card__top h2 {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 40px;
+  line-height: 0.95;
+}
+
+.episode-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+}
+
+.episode-card__stats span {
+  display: inline-flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.episode-card__stats strong {
+  color: var(--on-surface);
+}
+
+.episode-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.episodes-empty {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  border-radius: 28px;
+  padding: 28px;
+}
+
+.episodes-empty--state {
+  text-align: center;
+}
+
+.episodes-empty--state .material-symbols-outlined {
+  font-size: 46px;
+  color: var(--secondary);
+}
+
+.episodes-empty--state h2 {
+  margin: 10px 0 8px;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 40px;
+}
+
+.episodes-empty--state p {
+  margin: 0 0 18px;
+  color: var(--on-surface-variant);
+}
+
+@media (max-width: 1100px) {
+  .episodes-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .episode-card {
+    grid-template-columns: 1fr;
+  }
+
+  .episode-card__index {
+    min-height: 82px;
+  }
+}

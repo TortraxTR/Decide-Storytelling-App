@@ -1,246 +1,639 @@
-/* ── Page layout ─────────────────────────────────────────────────────────── */
 .graph-page {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    background: #0f1117;
-    color: #f0f0f0;
-    font-family: system-ui, sans-serif;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 22% 14%, rgba(128, 131, 255, 0.08), transparent 18%),
+    radial-gradient(circle at 78% 34%, rgba(255, 178, 188, 0.05), transparent 18%),
+    linear-gradient(180deg, #0d1430 0%, #0b122a 100%);
 }
 
-/* ── Header ──────────────────────────────────────────────────────────────── */
-.graph-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 12px 20px;
-    background: #1a1d27;
-    border-bottom: 1px solid #2e3044;
-    flex-shrink: 0;
+.graph-canvas {
+  position: relative;
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
 }
 
-.btn-back {
-    background: none;
-    border: 1px solid #3a3d52;
-    color: #a0a3b1;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: border-color 0.2s, color 0.2s;
-}
-.btn-back:hover { border-color: #6c6fef; color: #fff; }
-
-.graph-title {
-    flex: 1;
-    font-size: 18px;
-    font-weight: 600;
-    margin: 0;
-    color: #fff;
-}
-
-.graph-header-actions { display: flex; gap: 10px; }
-
-.btn-add-node {
-    background: #6c6fef;
-    color: #fff;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: background 0.2s;
-}
-.btn-add-node:hover:not(:disabled) { background: #5557d4; }
-.btn-add-node:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* ── State messages ──────────────────────────────────────────────────────── */
-.graph-error {
-    padding: 12px 20px;
-    background: #3d1515;
-    color: #ff6b6b;
-    font-size: 14px;
-    border-bottom: 1px solid #5c2020;
+.graph-canvas .react-flow {
+  width: 100%;
+  height: 100vh;
 }
 
 .graph-loading {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #6c7080;
-    font-size: 16px;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  color: var(--on-surface-variant);
 }
 
-/* ── Canvas ──────────────────────────────────────────────────────────────── */
-.graph-canvas {
-    flex: 1;
-    position: relative;
+.graph-nav,
+.graph-action,
+.graph-toolbar,
+.graph-status,
+.graph-toast,
+.graph-empty {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(24, 33, 66, 0.68);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 22px 46px rgba(5, 8, 20, 0.26);
 }
 
-/* ── Hint panels ─────────────────────────────────────────────────────────── */
-.graph-empty-hint,
-.graph-hint {
-    background: rgba(26, 29, 39, 0.92);
-    border: 1px solid #2e3044;
-    border-radius: 8px;
-    padding: 10px 18px;
-    font-size: 13px;
-    color: #a0a3b1;
-    pointer-events: none;
+.graph-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: rgba(236, 239, 255, 0.8);
 }
 
-/* ── Custom node card ────────────────────────────────────────────────────── */
-.graph-node-card {
-    width: 200px;
-    background: #1a1d27;
-    border: 2px solid #2e3044;
-    border-radius: 10px;
-    overflow: hidden;
-    position: relative;
-    transition: border-color 0.2s, box-shadow 0.2s;
+.graph-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 15px;
+  min-height: 62px;
+  padding: 0 20px;
+  border-radius: 999px;
+  color: rgba(241, 239, 255, 0.9);
+  background: rgba(26, 35, 66, 0.78);
 }
 
-.graph-node-card.selected {
-    border-color: #6c6fef;
-    box-shadow: 0 0 0 3px rgba(108, 111, 239, 0.25);
+.graph-toolbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
-.graph-node-badges {
-    position: absolute;
-    top: 6px;
-    left: 6px;
-    display: flex;
-    gap: 4px;
-    z-index: 1;
+.graph-toolbar__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #f3a8ba;
+  box-shadow: 0 0 0 2px rgba(243, 168, 186, 0.12);
 }
 
-.badge {
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
-    letter-spacing: 0.5px;
-}
-.badge.start { background: #22c55e; color: #fff; }
-.badge.end   { background: #ef4444; color: #fff; }
-
-.graph-node-img {
-    width: 100%;
-    height: 140px;
-    object-fit: cover;
-    display: block;
-    background: #11131c;
+.graph-toolbar__divider,
+.graph-status__divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.graph-node-actions {
-    display: flex;
-    gap: 4px;
-    padding: 6px;
-    background: #13151f;
-    flex-wrap: wrap;
+.graph-toolbar__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(239, 241, 255, 0.86);
 }
 
-.btn-badge {
-    flex: 1;
-    font-size: 11px;
-    padding: 4px 6px;
-    border-radius: 5px;
-    border: 1px solid #2e3044;
-    background: #1a1d27;
-    color: #a0a3b1;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    white-space: nowrap;
-}
-.btn-badge:hover { background: #2e3044; color: #fff; }
-.btn-badge.active { background: #2a2e50; border-color: #6c6fef; color: #6c6fef; }
-
-.btn-delete-node {
-    font-size: 12px;
-    padding: 4px 8px;
-    border-radius: 5px;
-    border: 1px solid #3d1515;
-    background: #1a1d27;
-    color: #ff6b6b;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.btn-delete-node:hover { background: #3d1515; }
-
-/* ── Edge edit panel ─────────────────────────────────────────────────────── */
-.edge-edit-panel {
-    position: absolute;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-    background: #1a1d27;
-    border: 1px solid #2e3044;
-    border-radius: 10px;
-    padding: 16px 20px;
-    min-width: 280px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+.graph-toolbar__icon:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.edge-edit-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #a0a3b1;
-    margin: 0 0 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+.graph-toolbar__symbol {
+  display: inline-block;
+  min-width: 12px;
+  font-size: 23px;
+  line-height: 1;
+  font-weight: 500;
+  transform: translateY(-1px);
 }
 
-.edge-edit-input {
-    width: 100%;
-    padding: 8px 10px;
-    border-radius: 6px;
-    border: 1px solid #2e3044;
-    background: #11131c;
-    color: #f0f0f0;
-    font-size: 14px;
-    margin-bottom: 12px;
-    box-sizing: border-box;
+.graph-toolbar__zoom {
+  min-width: 44px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
 }
-.edge-edit-input:focus { outline: none; border-color: #6c6fef; }
 
-.edge-edit-actions { display: flex; gap: 8px; }
-
-.btn-primary {
-    flex: 1;
-    padding: 8px;
-    border-radius: 6px;
-    border: none;
-    background: #6c6fef;
-    color: #fff;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 0.2s;
+.graph-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0.92;
 }
-.btn-primary:hover { background: #5557d4; }
 
-.btn-danger {
-    padding: 8px 14px;
-    border-radius: 6px;
-    border: none;
-    background: #3d1515;
-    color: #ff6b6b;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 0.2s;
+.graph-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 15px;
+  border-radius: 999px;
+  color: rgba(239, 241, 255, 0.86);
 }
-.btn-danger:hover { background: #5c2020; }
 
-.btn-secondary {
-    padding: 8px 14px;
-    border-radius: 6px;
-    border: 1px solid #2e3044;
-    background: transparent;
-    color: #a0a3b1;
-    font-size: 13px;
-    cursor: pointer;
-    transition: border-color 0.2s;
+.graph-action--primary {
+  background: linear-gradient(135deg, rgba(203, 201, 255, 0.96), rgba(128, 131, 255, 0.92));
+  color: #0c0d4c;
 }
-.btn-secondary:hover { border-color: #6c6fef; color: #fff; }
+
+.graph-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: rgba(236, 239, 255, 0.74);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.graph-toast,
+.graph-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  color: rgba(245, 233, 236, 0.92);
+  font-size: 13px;
+}
+
+.react-flow__renderer,
+.react-flow__pane,
+.react-flow__background,
+.react-flow__container {
+  background: transparent !important;
+}
+
+.react-flow__pane {
+  cursor: grab;
+}
+
+.react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.react-flow__edge-path {
+  stroke: url(#graph-edge-gradient);
+  filter:
+    drop-shadow(0 0 9px rgba(204, 207, 255, 0.35))
+    drop-shadow(0 0 16px rgba(250, 190, 207, 0.14));
+}
+
+.react-flow__edge-textbg {
+  fill: rgba(40, 47, 78, 0.98);
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.react-flow__edge-text {
+  fill: rgba(247, 245, 255, 0.96);
+}
+
+.graph-node {
+  width: 394px;
+}
+
+.graph-node--branch {
+  width: 318px;
+}
+
+.graph-node__frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  background: rgba(19, 28, 56, 0.76);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 24px 52px rgba(5, 8, 20, 0.22);
+  cursor: grab;
+}
+
+.graph-node--selected .graph-node__frame {
+  box-shadow:
+    inset 0 0 0 1px rgba(197, 201, 255, 0.14),
+    0 0 0 1px rgba(197, 201, 255, 0.1),
+    0 24px 52px rgba(5, 8, 20, 0.22);
+}
+
+.graph-node__art,
+.graph-node__veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.graph-node__art {
+  background-position: center;
+  background-size: cover;
+  opacity: 0.16;
+  filter: saturate(0.35) contrast(0.9);
+}
+
+.graph-node__veil {
+  background:
+    radial-gradient(circle at 24% 12%, rgba(192, 193, 255, 0.09), transparent 30%),
+    linear-gradient(180deg, rgba(16, 22, 43, 0.56), rgba(16, 22, 43, 0.9));
+}
+
+.graph-node__content {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  padding: 22px 22px 20px;
+}
+
+.graph-node--branch .graph-node__content {
+  gap: 12px;
+  padding: 18px 20px 18px;
+}
+
+.graph-node__topline {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.graph-node__eyebrow,
+.graph-node__logic-label {
+  margin: 0;
+  color: rgba(208, 205, 244, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.graph-node__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(226, 228, 242, 0.52);
+}
+
+.graph-node__icon .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.graph-node__copy {
+  display: grid;
+  gap: 14px;
+}
+
+.graph-node__copy h3 {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 2.7rem;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  color: #f0eefc;
+}
+
+.graph-node--branch .graph-node__copy h3 {
+  font-size: 1.95rem;
+  font-style: italic;
+}
+
+.graph-node__copy p {
+  margin: 0;
+  max-width: 24ch;
+  color: rgba(235, 236, 244, 0.82);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.graph-node--branch .graph-node__copy p {
+  max-width: 18ch;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.graph-node__logic {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(54, 54, 86, 0.54);
+  box-shadow:
+    inset 0 0 0 1px rgba(246, 181, 205, 0.36),
+    0 10px 26px rgba(13, 17, 36, 0.16);
+}
+
+.graph-node__logic-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(246, 192, 214, 0.94);
+}
+
+.graph-node__logic-label .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.graph-node__choice-list {
+  display: grid;
+  gap: 10px;
+}
+
+.graph-node__choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 9px;
+  background: rgba(32, 37, 64, 0.96);
+  color: rgba(235, 236, 244, 0.9);
+  font-size: 13px;
+}
+
+.graph-node__choice-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: rgba(235, 236, 244, 0.96);
+  font-size: 13px;
+  line-height: 1.4;
+  outline: none;
+}
+
+.graph-node__choice-input::placeholder {
+  color: rgba(235, 236, 244, 0.42);
+}
+
+.graph-node__choice-save {
+  border: 1px solid rgba(191, 196, 255, 0.2);
+  background: rgba(63, 70, 112, 0.78);
+  color: rgba(239, 241, 255, 0.9);
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.graph-node__choice-save:disabled {
+  opacity: 0.6;
+}
+
+.graph-node__choice-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(201, 196, 244, 0.84);
+}
+
+.graph-node__logic-empty {
+  margin: 0;
+  color: rgba(235, 236, 244, 0.72);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.graph-node__branch-hint {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(159, 182, 255, 0.18);
+  background: rgba(30, 37, 68, 0.74);
+}
+
+.graph-node__branch-hint p {
+  margin: 0;
+  color: rgba(224, 230, 255, 0.82);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.graph-node__branch-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(245, 190, 211, 0.28);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(77, 77, 120, 0.74), rgba(48, 53, 90, 0.88));
+  color: rgba(248, 228, 237, 0.96);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 22px rgba(8, 11, 24, 0.22);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.graph-node__branch-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(247, 198, 216, 0.44);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 16px 28px rgba(8, 11, 24, 0.28);
+}
+
+.graph-node__branch-button--inline {
+  min-height: 38px;
+}
+
+.graph-node__controls {
+  display: grid;
+  gap: 10px;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transform: translateY(6px);
+  transition: opacity 160ms ease, transform 160ms ease, max-height 160ms ease;
+}
+
+.graph-node__controls--visible,
+.graph-node__frame:hover .graph-node__controls {
+  opacity: 1;
+  max-height: 120px;
+  transform: translateY(0);
+}
+
+.graph-node__badge-row {
+  display: flex;
+  gap: 8px;
+}
+
+.graph-node__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(34, 39, 67, 0.86);
+  color: rgba(247, 193, 213, 0.94);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.graph-node__actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.graph-node__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(29, 35, 59, 0.74);
+  color: rgba(238, 239, 249, 0.78);
+}
+
+.graph-node__toggle--active {
+  color: #d7d8ff;
+  border-color: rgba(207, 211, 255, 0.24);
+  background: rgba(207, 211, 255, 0.1);
+}
+
+.graph-node__toggle--pink.graph-node__toggle--active {
+  color: #f7bfd1;
+  border-color: rgba(247, 191, 209, 0.24);
+  background: rgba(247, 191, 209, 0.1);
+}
+
+.graph-node__handle {
+  width: 24px !important;
+  height: 24px !important;
+  border: 3px solid !important;
+  background: rgba(11, 16, 34, 0.96) !important;
+  box-shadow:
+    0 0 0 6px rgba(11, 16, 34, 0.28),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.04) !important;
+}
+
+.graph-node__handle--in {
+  border-color: #ff9fbe !important;
+  box-shadow:
+    0 0 0 7px rgba(255, 159, 190, 0.18),
+    0 0 18px rgba(255, 159, 190, 0.34),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.04) !important;
+}
+
+.graph-node__handle--out {
+  border-color: #9fb6ff !important;
+  box-shadow:
+    0 0 0 7px rgba(159, 182, 255, 0.16),
+    0 0 18px rgba(159, 182, 255, 0.28),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.04) !important;
+}
+
+.graph-node__handle--prompted {
+  box-shadow:
+    0 0 0 8px rgba(159, 182, 255, 0.24),
+    0 0 22px rgba(159, 182, 255, 0.5),
+    0 0 34px rgba(242, 173, 212, 0.18),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.04) !important;
+}
+
+.graph-node__handle--disabled {
+  opacity: 0.52;
+  filter: saturate(0.7);
+}
+
+.graph-modal {
+  max-width: 560px;
+}
+
+.graph-toast--hint {
+  color: rgba(236, 239, 255, 0.92);
+  border-color: rgba(207, 210, 255, 0.12);
+  background: rgba(28, 36, 70, 0.82);
+}
+
+@media (max-width: 960px) {
+  .graph-toolbar {
+    min-height: 60px;
+    padding: 0 16px;
+    gap: 12px;
+  }
+
+  .graph-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .graph-node {
+    width: 350px;
+  }
+
+  .graph-node--branch {
+    width: 300px;
+  }
+
+  .graph-node__copy h3 {
+    font-size: 2.2rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .graph-toolbar,
+  .graph-status,
+  .graph-action,
+  .graph-nav,
+  .graph-toast,
+  .graph-empty {
+    min-height: 42px;
+  }
+
+  .graph-toolbar {
+    gap: 10px;
+    padding: 0 14px;
+  }
+
+  .graph-toolbar__brand span:last-child {
+    display: none;
+  }
+
+  .graph-node {
+    width: 304px;
+  }
+
+  .graph-node--branch {
+    width: 280px;
+  }
+
+  .graph-node__content {
+    padding: 20px;
+  }
+
+  .graph-node__copy h3 {
+    font-size: 2rem;
+  }
+
+  .graph-node--branch .graph-node__copy h3 {
+    font-size: 1.75rem;
+  }
+
+  .graph-node__actions {
+    flex-direction: column;
+  }
+}

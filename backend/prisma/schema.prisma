@@ -106,6 +106,8 @@ model EpisodeNode {
   assetKey          String        @db.VarChar(1024) 
   assetWidth        Int?          
   assetHeight       Int?          
+  canvasX           Float?
+  canvasY           Float?
   
   isStart           Boolean       @default(false)
   isEnd             Boolean       @default(false)
