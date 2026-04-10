@@ -1,5 +1,4 @@
-const BASE_URL = 'https://mswgurkeeq.eu-central-1.awsapprunner.com';
-const S3_BUCKET_URL = 'https://decide-media-dev.s3.eu-central-1.amazonaws.com';
+import { API_BASE_URL as BASE_URL, S3_BUCKET_URL } from './config';
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 

@@ -11,7 +11,7 @@ import {
 } from "../api";
 import "./StoriesPage.css";
 
-const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE ?? "https://decide-media-dev.s3.eu-central-1.amazonaws.com";
+const S3_PUBLIC_BASE = import.meta.env.VITE_S3_PUBLIC_BASE ?? "";
 
 function thumbUrl(key: string | null | undefined) {
     if (!key) return null;
