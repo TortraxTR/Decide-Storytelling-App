@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   createStory,
   deleteStory,
+  ensureAuthorForUser,
   listEpisodes,
   listStories,
   presignStoryUpload,
@@ -23,12 +24,6 @@ interface StoryStats {
   episodes: number;
 }
 
-function requireAuthorId() {
-  const authorId = localStorage.getItem("author_id");
-  if (!authorId) throw new Error("Missing author_id. Please sign in again.");
-  return authorId;
-}
-
 function storyThumb(key: string | null | undefined) {
   if (!key || !S3_PUBLIC_BASE) return null;
   return `${S3_PUBLIC_BASE.replace(/\/+$/, "")}/${key.replace(/^\/+/, "")}`;
@@ -43,7 +38,7 @@ function explainUploadError(err: unknown) {
 
 export default function StoriesPage() {
   const navigate = useNavigate();
-  const authorId = useMemo(() => requireAuthorId(), []);
+  const [authorId, setAuthorId] = useState(() => localStorage.getItem("author_id") ?? "");
   const [stories, setStories] = useState<StoryDto[]>([]);
   const [stats, setStats] = useState<StoryStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +51,32 @@ export default function StoriesPage() {
   const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
   const fileInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
+  useEffect(() => {
+    // Ensure author profile exists before loading stories.
+    const userId = localStorage.getItem("user_id");
+    const stored = localStorage.getItem("author_id");
+    if (stored) {
+      setAuthorId(stored);
+      return;
+    }
+    if (!userId) {
+      setError("Not signed in. Please sign in again.");
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await ensureAuthorForUser(userId);
+        localStorage.setItem("author_id", res.id);
+        setAuthorId(res.id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to initialize author profile");
+      }
+    })();
+  }, []);
+
   async function refresh() {
+    if (!authorId) return;
     setLoading(true);
     setError("");
 
@@ -77,6 +97,11 @@ export default function StoriesPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authorId]);
 
   useEffect(() => {
     void refresh();

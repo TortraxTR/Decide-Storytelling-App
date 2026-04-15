@@ -33,6 +33,12 @@ async def get_author(author_id: str):
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_author(payload: AuthorCreate):
+    # Make this endpoint idempotent for a given userId.
+    # If the author already exists (unique userId), return it instead of failing.
+    existing = await db.author.find_unique(where={"userId": payload.userId})
+    if existing:
+        return existing
+
     try:
         return await db.author.create(data=payload.model_dump(exclude_none=True))
     except Exception as e:

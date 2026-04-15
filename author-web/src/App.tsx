@@ -30,6 +30,10 @@ function App() {
           path="/episodes/:episodeId/graph"
           element={isAuthed() ? <EpisodeGraphPage /> : <Navigate to="/" replace />}
         />
+        <Route
+          path="/episodes/:episodeId/graph/"
+          element={isAuthed() ? <EpisodeGraphPage /> : <Navigate to="/" replace />}
+        />
 
         {/* Redirects */}
         <Route path="/dashboard" element={<Navigate to="/stories" replace />} />
