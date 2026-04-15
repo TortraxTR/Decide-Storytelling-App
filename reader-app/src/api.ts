@@ -1,17 +1,57 @@
 const BASE_URL = 'https://mswgurkeeq.eu-central-1.awsapprunner.com';
 const S3_BUCKET_URL = 'https://decide-media-dev.s3.eu-central-1.amazonaws.com';
 
+const extractErrorMessage = async (response: Response, fallback: string) => {
+  const contentType = response.headers.get('content-type') || '';
+  const body = contentType.includes('application/json')
+    ? await response.json().catch(() => null)
+    : await response.text().catch(() => '');
+
+  if (typeof body === 'string' && body.trim()) {
+    return body;
+  }
+
+  const detail = typeof body === 'object' && body ? (body as any).detail : undefined;
+  if (typeof detail === 'string') {
+    return detail;
+  }
+  if (Array.isArray(detail)) {
+    const message = detail
+      .map((item) => (typeof item?.msg === 'string' ? item.msg : null))
+      .filter(Boolean)
+      .join(', ');
+    if (message) return message;
+  }
+
+  return fallback;
+};
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
-export const login = async (email: string, password: string) => {
+export const login = async (email: string, password: string, role = 'Reader') => {
   const response = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, role }),
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.detail || 'Login failed');
-  return data as { user_id: string };
+  const contentType = response.headers.get('content-type') || '';
+  const body = contentType.includes('application/json')
+    ? await response.json().catch(() => null)
+    : await response.text().catch(() => '');
+  if (!response.ok) {
+    const detail = typeof body === 'object' && body ? (body as any).detail : undefined;
+    if (typeof detail === 'string') throw new Error(detail);
+    if (Array.isArray(detail)) {
+      const message = detail
+        .map((item) => (typeof item?.msg === 'string' ? item.msg : null))
+        .filter(Boolean)
+        .join(', ');
+      throw new Error(message || 'Login failed');
+    }
+    if (typeof body === 'string' && body.trim()) throw new Error(body);
+    throw new Error('Login failed');
+  }
+  return body as { user_id: string };
 };
 
 export const register = async (email: string, password: string, username: string, role: string) => {
@@ -59,11 +99,14 @@ export const createReader = async (userId: string) => {
 // ─── Stories ─────────────────────────────────────────────────────────────────
 
 export const fetchStories = async () => {
-  try {
-    const response = await fetch(`${BASE_URL}/stories/`);
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.map((story: any) => ({
+  const response = await fetch(`${BASE_URL}/stories/`);
+  if (!response.ok) {
+    throw new Error(await extractErrorMessage(response, 'Failed to load stories'));
+  }
+  const data = await response.json();
+  return data
+    .filter((story: any) => story.status === 'PUBLISHED')
+    .map((story: any) => ({
       id: story.id,
       title: story.title,
       author: story.author?.user?.username || 'Unknown Author',
@@ -71,9 +114,6 @@ export const fetchStories = async () => {
         ? `${S3_BUCKET_URL}/${story.thumbnail}`
         : 'https://via.placeholder.com/200x300',
     }));
-  } catch {
-    return [];
-  }
 };
 
 export const fetchStory = async (storyId: string) => {
@@ -148,4 +188,13 @@ export const advanceSession = async (sessionId: string, decisionId: string) => {
     currentNodeId: string;
     currentNode: { id: string; assetKey: string; isStart: boolean; isEnd: boolean };
   };
+};
+
+export const deleteSession = async (sessionId: string) => {
+  const response = await fetch(`${BASE_URL}/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error(await extractErrorMessage(response, 'Failed to reset story progress'));
+  }
 };

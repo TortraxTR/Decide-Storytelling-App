@@ -16,7 +16,7 @@ export default function LoginScreen({ route, navigation }: any) {
 
     setLoading(true);
     try {
-      const data = await login(email, password);
+      const data = await login(email, password, role || 'Reader');
       const userId = data.user_id;
 
       if (role === 'Author') {

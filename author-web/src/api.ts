@@ -93,7 +93,21 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail ?? `Request failed (${res.status})`);
+        const detail = body.detail;
+        if (typeof detail === "string") {
+            throw new Error(detail);
+        }
+        if (Array.isArray(detail)) {
+            const message = detail
+                .map((item) => {
+                    if (typeof item?.msg === "string") return item.msg;
+                    return null;
+                })
+                .filter(Boolean)
+                .join(", ");
+            throw new Error(message || `Request failed (${res.status})`);
+        }
+        throw new Error(`Request failed (${res.status})`);
     }
 
     if (res.status === 204) return undefined as T;
@@ -125,7 +139,7 @@ export async function register(
 export async function login(email: string, password: string): Promise<AuthResponse> {
     return request<AuthResponse>("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, role: "Author" }),
     });
 }
 

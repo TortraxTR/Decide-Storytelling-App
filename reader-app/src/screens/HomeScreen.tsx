@@ -5,13 +5,21 @@ import { fetchStories } from '../api';
 export default function HomeScreen({ route, navigation }: any) {
   const [stories, setStories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const { userId } = route.params || {};
-
   useEffect(() => {
     const loadStories = async () => {
-      const data = await fetchStories();
-      setStories(data);
-      setLoading(false);
+      setLoading(true);
+      setError('');
+      try {
+        const data = await fetchStories();
+        setStories(data);
+      } catch (err) {
+        setStories([]);
+        setError(err instanceof Error ? err.message : 'Failed to load stories');
+      } finally {
+        setLoading(false);
+      }
     };
     loadStories();
   }, []);
@@ -31,6 +39,7 @@ export default function HomeScreen({ route, navigation }: any) {
     navigation.navigate('EpisodeList', {
       storyId: story.id,
       storyTitle: story.title,
+      userId,
     });
   };
 
@@ -45,17 +54,22 @@ export default function HomeScreen({ route, navigation }: any) {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.headerTitle}>Explore</Text>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
       
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Popular Stories</Text>
-        <FlatList
-          data={stories}
-          renderItem={renderStoryCard}
-          keyExtractor={(item) => item.id}
-          horizontal={true}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.listContainer}
-        />
+        {stories.length === 0 ? (
+          <Text style={styles.emptyText}>No published stories available right now.</Text>
+        ) : (
+          <FlatList
+            data={stories}
+            renderItem={renderStoryCard}
+            keyExtractor={(item) => item.id}
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.listContainer}
+          />
+        )}
       </View>
     </ScrollView>
   );
@@ -68,6 +82,8 @@ const styles = StyleSheet.create({
   section: { marginBottom: 30 },
   sectionTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', marginLeft: 20, marginBottom: 15 },
   listContainer: { paddingLeft: 20 },
+  errorText: { color: '#FF8FA3', fontSize: 14, marginHorizontal: 20, marginBottom: 14 },
+  emptyText: { color: '#AAAAAA', fontSize: 15, marginHorizontal: 20 },
   card: { marginRight: 15, width: 140 },
   coverImage: { width: 140, height: 200, borderRadius: 10, marginBottom: 10, backgroundColor: '#333' },
   storyTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },

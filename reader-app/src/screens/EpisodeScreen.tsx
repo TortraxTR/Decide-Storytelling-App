@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { CommonActions } from '@react-navigation/native';
 import {
   StyleSheet,
   Text,
@@ -21,14 +22,16 @@ import {
   createReader,
   createOrResumeSession,
   advanceSession,
+  deleteSession,
 } from '../api';
 
 const { width } = Dimensions.get('window');
 
 type Node = { id: string; assetKey: string; isStart: boolean; isEnd: boolean };
 type Decision = { id: string; text: string; sourceNodeId: string; targetNodeId: string };
+type PanelEntry = { node: Node; mediaUrl: string };
 
-export default function EpisodeScreen({ route }: any) {
+export default function EpisodeScreen({ route, navigation }: any) {
   const { storyId, episodeId: selectedEpisodeId, title, userId } = route.params || {};
 
   const [loading, setLoading] = useState(true);
@@ -37,17 +40,50 @@ export default function EpisodeScreen({ route }: any) {
 
   const [episodeId, setEpisodeId] = useState('');
   const [sessionId, setSessionId] = useState('');
+  const [readerId, setReaderId] = useState('');
+  const [startNode, setStartNode] = useState<Node | null>(null);
   const [currentNode, setCurrentNode] = useState<Node | null>(null);
-  const [mediaUrl, setMediaUrl] = useState('');
+  const [panelEntries, setPanelEntries] = useState<PanelEntry[]>([]);
   const [decisions, setDecisions] = useState<Decision[]>([]);
 
-  const loadNodeContent = useCallback(async (node: Node, epId: string) => {
-    const [url, decisionList] = await Promise.all([
-      fetchNodeMediaUrl(node.id),
-      node.isEnd ? Promise.resolve([]) : fetchDecisionsForNode(epId, node.id),
-    ]);
-    setMediaUrl(url);
-    setDecisions(decisionList);
+  const resolveLinearSequence = useCallback(async (
+    startNode: Node,
+    epId: string,
+    activeSessionId: string | null,
+    nodeIndex: Map<string, Node>,
+  ) => {
+    const panels: PanelEntry[] = [];
+    let node = startNode;
+    let decisionList: Decision[] = [];
+
+    for (let safety = 0; safety < 50; safety += 1) {
+      const [url, nextDecisions] = await Promise.all([
+        fetchNodeMediaUrl(node.id),
+        node.isEnd ? Promise.resolve([]) : fetchDecisionsForNode(epId, node.id),
+      ]);
+
+      panels.push({ node, mediaUrl: url });
+      decisionList = nextDecisions;
+
+      if (node.isEnd || nextDecisions.length !== 1) {
+        return { panels, terminalNode: node, terminalDecisions: nextDecisions };
+      }
+
+      const onlyDecision = nextDecisions[0];
+
+      if (activeSessionId) {
+        const result = await advanceSession(activeSessionId, onlyDecision.id);
+        node = result.currentNode;
+      } else {
+        const nextNode = nodeIndex.get(onlyDecision.targetNodeId);
+        if (!nextNode) {
+          throw new Error('Story path is incomplete.');
+        }
+        node = nextNode;
+      }
+    }
+
+    throw new Error('Story path is too deep to resolve.');
   }, []);
 
   useEffect(() => {
@@ -72,11 +108,13 @@ export default function EpisodeScreen({ route }: any) {
         setEpisodeId(targetEpisodeId);
 
         const nodes = await fetchEpisodeNodes(targetEpisodeId);
+        const nodeIndex = new Map(nodes.map((node) => [node.id, node]));
         const startNode = nodes.find(n => n.isStart);
         if (!startNode) {
           setError('Episode has no start node.');
           return;
         }
+        setStartNode(startNode);
 
         let readerId: string | null = null;
         if (userId) {
@@ -87,18 +125,23 @@ export default function EpisodeScreen({ route }: any) {
             const newReader = await createReader(userId);
             readerId = newReader.id;
           }
+          setReaderId(readerId);
         }
 
         if (readerId) {
           const session = await createOrResumeSession(readerId, targetEpisodeId, startNode.id);
           setSessionId(session.id);
           const resumedNode = nodes.find(n => n.id === session.currentNodeId) ?? startNode;
-          setCurrentNode(resumedNode);
-          await loadNodeContent(resumedNode, targetEpisodeId);
+          const resolved = await resolveLinearSequence(resumedNode, targetEpisodeId, session.id, nodeIndex);
+          setCurrentNode(resolved.terminalNode);
+          setPanelEntries(resolved.panels);
+          setDecisions(resolved.terminalDecisions);
         } else {
           // Guest mode: show start node without session tracking
-          setCurrentNode(startNode);
-          await loadNodeContent(startNode, targetEpisodeId);
+          const resolved = await resolveLinearSequence(startNode, targetEpisodeId, null, nodeIndex);
+          setCurrentNode(resolved.terminalNode);
+          setPanelEntries(resolved.panels);
+          setDecisions(resolved.terminalDecisions);
         }
       } catch (e: any) {
         setError(e.message || 'Failed to load story');
@@ -108,7 +151,7 @@ export default function EpisodeScreen({ route }: any) {
     };
 
     init();
-  }, [storyId, selectedEpisodeId, userId, loadNodeContent]);
+  }, [storyId, selectedEpisodeId, userId, resolveLinearSequence]);
 
   const handleDecision = async (decisionId: string) => {
     if (!sessionId || advancing) return;
@@ -116,13 +159,79 @@ export default function EpisodeScreen({ route }: any) {
       setAdvancing(true);
       const result = await advanceSession(sessionId, decisionId);
       const nextNode = result.currentNode;
-      setCurrentNode(nextNode);
-      await loadNodeContent(nextNode, episodeId);
+      const nodes = await fetchEpisodeNodes(episodeId);
+      const nodeIndex = new Map(nodes.map((node) => [node.id, node]));
+      const resolved = await resolveLinearSequence(nextNode, episodeId, sessionId, nodeIndex);
+      setCurrentNode(resolved.terminalNode);
+      setPanelEntries(resolved.panels);
+      setDecisions(resolved.terminalDecisions);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to advance story');
     } finally {
       setAdvancing(false);
     }
+  };
+
+  const handleRestart = async () => {
+    if (!startNode || !episodeId || advancing) return;
+
+    try {
+      setAdvancing(true);
+      setError('');
+
+      const nodes = await fetchEpisodeNodes(episodeId);
+      const nodeIndex = new Map(nodes.map((node) => [node.id, node]));
+      const freshStartNode = nodes.find((node) => node.isStart) ?? startNode;
+      setStartNode(freshStartNode);
+
+      if (sessionId) {
+        await deleteSession(sessionId);
+      }
+
+      if (readerId) {
+        const session = await createOrResumeSession(readerId, episodeId, freshStartNode.id);
+        setSessionId(session.id);
+        const resumedNode = nodeIndex.get(session.currentNodeId) ?? freshStartNode;
+        const resolved = await resolveLinearSequence(resumedNode, episodeId, session.id, nodeIndex);
+        setCurrentNode(resolved.terminalNode);
+        setPanelEntries(resolved.panels);
+        setDecisions(resolved.terminalDecisions);
+      } else {
+        setSessionId('');
+        const resolved = await resolveLinearSequence(freshStartNode, episodeId, null, nodeIndex);
+        setCurrentNode(resolved.terminalNode);
+        setPanelEntries(resolved.panels);
+        setDecisions(resolved.terminalDecisions);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to restart story');
+    } finally {
+      setAdvancing(false);
+    }
+  };
+
+  const handleQuit = () => {
+    if (storyId) {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 1,
+          routes: [
+            { name: 'Home', params: { userId } },
+            {
+              name: 'EpisodeList',
+              params: {
+                storyId,
+                storyTitle: title,
+                userId,
+              },
+            },
+          ],
+        }),
+      );
+      return;
+    }
+
+    navigation.goBack();
   };
 
   if (loading) {
@@ -148,8 +257,15 @@ export default function EpisodeScreen({ route }: any) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {mediaUrl ? (
-          <Image source={{ uri: mediaUrl }} style={styles.panelImage} resizeMode="cover" />
+        {panelEntries.length > 0 ? (
+          panelEntries.map((panel, index) => (
+            <Image
+              key={`${panel.node.id}-${index}`}
+              source={{ uri: panel.mediaUrl }}
+              style={styles.panelImage}
+              resizeMode="cover"
+            />
+          ))
         ) : (
           <View style={[styles.panelImage, styles.imagePlaceholder]}>
             <ActivityIndicator color="#BB86FC" />
@@ -159,10 +275,31 @@ export default function EpisodeScreen({ route }: any) {
         {currentNode?.isEnd && (
           <View style={styles.endContainer}>
             <Text style={styles.endText}>— The End —</Text>
+            <View style={styles.endActions}>
+              <TouchableOpacity
+                style={[styles.endSecondaryButton, advancing && styles.decisionButtonDisabled]}
+                onPress={handleQuit}
+                disabled={advancing}
+              >
+                <Text style={styles.endSecondaryButtonText}>Quit</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.restartButton, advancing && styles.decisionButtonDisabled]}
+                onPress={handleRestart}
+                disabled={advancing}
+              >
+                {advancing ? (
+                  <ActivityIndicator color="#121212" />
+                ) : (
+                  <Text style={styles.restartButtonText}>Restart Story</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
-        {!currentNode?.isEnd && decisions.length > 0 && (
+        {!currentNode?.isEnd && decisions.length > 1 && (
           <View style={styles.decisionContainer}>
             <Text style={styles.decisionPrompt}>What do you do?</Text>
             {decisions.map((d, index) => (
@@ -237,5 +374,33 @@ const styles = StyleSheet.create({
   decisionButtonText: { color: '#121212', fontSize: 16, fontWeight: 'bold' },
   endContainer: { padding: 40, alignItems: 'center' },
   endText: { color: '#BB86FC', fontSize: 20, fontWeight: 'bold', fontStyle: 'italic' },
+  endActions: {
+    marginTop: 24,
+    width: '100%',
+    gap: 12,
+    alignItems: 'center',
+  },
+  restartButton: {
+    backgroundColor: '#BB86FC',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 10,
+    minWidth: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restartButtonText: { color: '#121212', fontSize: 16, fontWeight: 'bold' },
+  endSecondaryButton: {
+    backgroundColor: '#2B2B33',
+    borderWidth: 1,
+    borderColor: '#4B4B58',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 10,
+    minWidth: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endSecondaryButtonText: { color: '#F4F4F5', fontSize: 16, fontWeight: '600' },
   errorText: { color: '#FF6B6B', fontSize: 16, textAlign: 'center', margin: 20 },
 });
