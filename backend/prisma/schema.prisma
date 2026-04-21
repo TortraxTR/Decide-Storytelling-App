@@ -76,11 +76,12 @@ model EpisodeNode {
   episodeId         String        @db.Uuid
   isStart           Boolean       @default(false)
   isEnd             Boolean       @default(false)
-  assetHeight       Int?
   assetKey          String        @db.VarChar(1024)
+  assetHeight       Int?
   assetWidth        Int?
   canvasX           Float?
   canvasY           Float?
+  textField         String?       @db.Text
   outgoingDecisions Decision[]    @relation("SourceNode")
   incomingDecisions Decision[]    @relation("TargetNode")
   episode           Episode       @relation(fields: [episodeId], references: [id], onDelete: Cascade)
