@@ -1,5 +1,5 @@
-const DEFAULT_API_BASE = "https://mswgurkeeq.eu-central-1.awsapprunner.com";
-const API_BASE = import.meta.env.VITE_API_URL?.trim() || DEFAULT_API_BASE;
+import { API_BASE_URL } from "./config";
+const API_BASE = import.meta.env.VITE_API_URL?.trim() || API_BASE_URL;
 
 // ---------------------------------------------------------------------------
 // Types
