@@ -9,28 +9,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------------------------------------------------------
-// ENUMS
-// ---------------------------------------------------------
-
-enum PublishStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
-
-// ---------------------------------------------------------
-// USER MANAGEMENT
-// ---------------------------------------------------------
-
 model User {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email        String   @unique
   username     String?  @unique
-  passwordHash String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
+  passwordHash String?
   author       Author?
   reader       Reader?
 }
@@ -41,7 +26,6 @@ model Author {
   bio       String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   stories   Story[]
 }
@@ -51,27 +35,21 @@ model Reader {
   userId       String        @unique @db.Uuid
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   readSessions ReadSession[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
-// ---------------------------------------------------------
-// CONTENT CREATION (Author Dashboard)
-// ---------------------------------------------------------
 
 model Story {
   id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  authorId    String        @db.Uuid
   title       String
   description String?
   thumbnail   String?       @db.VarChar(2048)
-  status      PublishStatus @default(DRAFT)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-
-  author      Author        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId    String        @db.Uuid
+  status      PublishStatus @default(DRAFT)
   episodes    Episode[]
+  author      Author        @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([authorId])
 }
@@ -81,40 +59,31 @@ model Episode {
   storyId      String        @db.Uuid
   title        String
   order        Int
-  status       PublishStatus @default(DRAFT)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-
+  status       PublishStatus @default(DRAFT)
+  decisions    Decision[]
   story        Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
   nodes        EpisodeNode[]
-  decisions    Decision[]
   readSessions ReadSession[]
 
   @@unique([storyId, order])
   @@index([storyId, order])
 }
 
-// ---------------------------------------------------------
-// NARRATIVE ENGINE (DAG Structure)
-// ---------------------------------------------------------
-
 model EpisodeNode {
   id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   episodeId         String        @db.Uuid
-  
-  // S3 & CloudFront Optimization
-  assetKey          String        @db.VarChar(1024) 
-  assetWidth        Int?          
-  assetHeight       Int?          
-  canvasX           Float?
-  canvasY           Float?
-  
   isStart           Boolean       @default(false)
   isEnd             Boolean       @default(false)
-
-  episode           Episode       @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  assetHeight       Int?
+  assetKey          String        @db.VarChar(1024)
+  assetWidth        Int?
+  canvasX           Float?
+  canvasY           Float?
   outgoingDecisions Decision[]    @relation("SourceNode")
   incomingDecisions Decision[]    @relation("TargetNode")
+  episode           Episode       @relation(fields: [episodeId], references: [id], onDelete: Cascade)
   readSessions      ReadSession[]
 
   @@unique([id, episodeId])
@@ -124,13 +93,10 @@ model EpisodeNode {
 model Decision {
   id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   text         String?
-  episodeId    String      @db.Uuid
   sourceNodeId String      @db.Uuid
   targetNodeId String      @db.Uuid
-
+  episodeId    String      @db.Uuid
   episode      Episode     @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  
-  // Explicit relations for DAG edges
   sourceNode   EpisodeNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
   targetNode   EpisodeNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
 
@@ -139,23 +105,23 @@ model Decision {
   @@index([targetNodeId])
 }
 
-// ---------------------------------------------------------
-// READER STATE MANAGEMENT
-// ---------------------------------------------------------
-
 model ReadSession {
   id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   readerId      String      @db.Uuid
   episodeId     String      @db.Uuid
   currentNodeId String      @db.Uuid
-  
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
-
-  reader        Reader      @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  currentNode   EpisodeNode @relation(fields: [currentNodeId], references: [id])
   episode       Episode     @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  currentNode   EpisodeNode @relation(fields: [currentNodeId], references: [id], onDelete: Restrict)
+  reader        Reader      @relation(fields: [readerId], references: [id], onDelete: Cascade)
 
   @@unique([readerId, episodeId])
   @@index([readerId])
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
