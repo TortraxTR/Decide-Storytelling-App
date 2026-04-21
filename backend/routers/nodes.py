@@ -19,6 +19,7 @@ class NodeCreate(BaseModel):
     assetHeight: Optional[int] = None
     canvasX: Optional[float] = None
     canvasY: Optional[float] = None
+    textField: Optional[str] = None
     isStart: bool = False
     isEnd: bool = False
 
@@ -28,6 +29,7 @@ class NodeUpdate(BaseModel):
     assetHeight: Optional[int] = None
     canvasX: Optional[float] = None
     canvasY: Optional[float] = None
+    textField: Optional[str] = None
     isStart: Optional[bool] = None
     isEnd: Optional[bool] = None
 
