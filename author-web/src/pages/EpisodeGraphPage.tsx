@@ -619,16 +619,19 @@ function extractAssetStem(assetKey: string) {
 }
 
 function sentenceCase(value: string) {
-  return value
+  const normalized = value
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+    .trim();
+
+  if (!normalized) return "";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 function narrativeTitle(index: number, node: EpisodeNodeDto, variant: "primary" | "branch", incomingTitle: string | undefined) {
   if (variant === "branch" && incomingTitle) {
-    return sentenceCase(incomingTitle);
+    // Preserve user-entered casing for branch-driven titles.
+    return incomingTitle.trim();
   }
 
   const stem = sentenceCase(extractAssetStem(node.assetKey));
