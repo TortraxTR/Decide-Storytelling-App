@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirecting…</title>
+    <script>
+      // GitHub Pages SPA redirect
+      // Redirect /foo -> /?p=/foo (preserve query/hash too)
+      var l = window.location;
+      var repoBase = "/Decide-Storytelling-App";
+      var path = l.pathname.startsWith(repoBase) ? l.pathname.slice(repoBase.length) : l.pathname;
+      l.replace(
+        repoBase + "/?p=" + encodeURIComponent(path + l.search + l.hash)
+      );
+    </script>
+  </head>
+  <body></body>
+</html>
