@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -35,16 +35,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build (Vite)
         run: npm run build
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload Pages artifact (frontend build only)
+      - name: Upload Pages artifact (Vite dist)
         uses: actions/upload-pages-artifact@v4
         with:
-          path: author-web/build
+          path: author-web/dist
 
   deploy:
     runs-on: ubuntu-latest
