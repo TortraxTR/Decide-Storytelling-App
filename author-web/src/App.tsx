@@ -6,7 +6,7 @@ import EpisodesPage from "./pages/EpisodesPage";
 import EpisodeGraphPage from "./pages/EpisodeGraphPage";
 
 function isAuthed() {
-  return Boolean(localStorage.getItem("user_id"));
+  return Boolean(localStorage.getItem("user_id") || localStorage.getItem("author_id"));
 }
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -26,10 +26,7 @@ function App() {
         </Route>
 
         {/* Graph editor has its own full-screen layout */}
-        <Route
-          path="/episodes/:episodeId/graph"
-          element={isAuthed() ? <EpisodeGraphPage /> : <Navigate to="/" replace />}
-        />
+        <Route path="/episodes/:episodeId/graph" element={<EpisodeGraphPage />}/>
 
         {/* Redirects */}
         <Route path="/dashboard" element={<Navigate to="/stories" replace />} />

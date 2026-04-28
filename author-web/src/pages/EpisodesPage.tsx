@@ -202,7 +202,7 @@ export default function EpisodesPage() {
             const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(episode.status) + 1) % STATUS_CYCLE.length];
 
             return (
-              <article className="glass-panel episode-card" key={episode.id} onClick={() => navigate(`/episodes/${episode.id}/graph`)}>
+              <article className="glass-panel episode-card" key={episode.id} onClick={() => openGraph(episode.id)}>
                 <div className="episode-card__index">{episode.order}</div>
                 <div className="episode-card__content">
                   <div className="episode-card__top">
