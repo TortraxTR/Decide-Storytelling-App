@@ -15,7 +15,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/Decide-Storytelling-App">
       <Routes>
         <Route path="/" element={<LoginPage />} />
 
