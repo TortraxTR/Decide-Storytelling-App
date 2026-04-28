@@ -1,5 +1,4 @@
-import { API_BASE_URL } from "./config";
-const API_BASE = import.meta.env.VITE_API_URL?.trim() || API_BASE_URL;
+const API_BASE = import.meta.env.VITE_API_URL?.trim();
 
 // ---------------------------------------------------------------------------
 // Types
