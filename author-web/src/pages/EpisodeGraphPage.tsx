@@ -87,8 +87,8 @@ function StoryNode({ data, selected }: NodeProps) {
     onToggleEnd,
     onDelete,
     choiceDrafts,
-  } =
-    data as unknown as StoryNodeData;
+  } = data as unknown as StoryNodeData;
+
   const badges = [
     dto.isStart ? "Start" : null,
     dto.isEnd ? "Ending" : null,
@@ -106,7 +106,6 @@ function StoryNode({ data, selected }: NodeProps) {
       />
 
       <div className="graph-node__frame">
-        {imageUrl && <div className="graph-node__art" style={{ backgroundImage: `url("${imageUrl}")` }} />}
         <div className="graph-node__veil" />
 
         <div className="graph-node__content">
@@ -189,6 +188,20 @@ function StoryNode({ data, selected }: NodeProps) {
               </button>
             </div>
           </div>
+
+          {imageUrl && (
+            <div className="graph-node__media">
+              <img
+                className="graph-node__image"
+                src={imageUrl}
+                alt={`${title} panel image`}
+                loading="lazy"
+                draggable={false}
+                onMouseDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              />
+            </div>
+          )}
         </div>
       </div>
 
