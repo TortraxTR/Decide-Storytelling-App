@@ -120,6 +120,10 @@ export default function EpisodesPage() {
     }
   }
 
+  function openGraph(episodeId: string) {
+    navigate(`/episodes/${episodeId}/graph`);
+  }
+
   return (
     <div className="app-page episodes-page">
       <section className="episodes-hero">
@@ -219,7 +223,7 @@ export default function EpisodesPage() {
                     <button className="app-btn app-btn--secondary" onClick={(event) => handleStatusCycle(event, episode)} disabled={statusSavingId === episode.id}>
                       {statusSavingId === episode.id ? "Updating…" : `Set ${STATUS_LABEL[nextStatus]}`}
                     </button>
-                    <button className="app-btn app-btn--primary" onClick={(event) => { event.stopPropagation(); navigate(`/episodes/${episode.id}/graph`); }}>
+                    <button className="app-btn app-btn--primary" onClick={() => openGraph(episode.id)}>
                       <span className="material-symbols-outlined">account_tree</span>
                       Open Graph
                     </button>
