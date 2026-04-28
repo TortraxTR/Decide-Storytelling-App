@@ -37,7 +37,10 @@ jobs:
 
       - name: Build (Vite)
         run: npm run build
-
+        env:
+          VITE_API_URL: ${{secrets.VITE_API_URL}}
+          VITE_S3_BUCKET_URL: ${{secrets.VITE_S3_BUCKET_URL}}
+        
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
