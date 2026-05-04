@@ -1,8 +1,10 @@
 import os
+from typing import Optional
+
 import boto3
 from botocore.exceptions import ClientError
 
-_jwt_secret: str | None = None
+_jwt_secret: Optional[str] = None
 _s3_client = None
 
 

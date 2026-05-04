@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from uuid import uuid4
@@ -12,13 +14,13 @@ router = APIRouter(prefix="/uploads", tags=["Uploads"])
 class PresignRequest(BaseModel):
     episodeId: str
     filename: str
-    contentType: str | None = None
+    contentType: Optional[str] = None
 
 
 class PresignStoryRequest(BaseModel):
     storyId: str
     filename: str
-    contentType: str | None = None
+    contentType: Optional[str] = None
 
 
 class PresignResponse(BaseModel):

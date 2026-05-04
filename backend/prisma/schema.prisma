@@ -31,25 +31,29 @@ model Author {
 }
 
 model Reader {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String        @unique @db.Uuid
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String          @unique @db.Uuid
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
   readSessions ReadSession[]
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites    StoryFavorite[]
+  ratings      StoryRating[]
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Story {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   title       String
   description String?
-  thumbnail   String?       @db.VarChar(2048)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  authorId    String        @db.Uuid
-  status      PublishStatus @default(DRAFT)
+  thumbnail   String?         @db.VarChar(2048)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  authorId    String          @db.Uuid
+  status      PublishStatus   @default(DRAFT)
   episodes    Episode[]
-  author      Author        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  favorites   StoryFavorite[]
+  ratings     StoryRating[]
+  author      Author          @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([authorId])
 }
@@ -118,6 +122,36 @@ model ReadSession {
   reader        Reader      @relation(fields: [readerId], references: [id], onDelete: Cascade)
 
   @@unique([readerId, episodeId])
+  @@index([readerId])
+}
+
+/// Library entry: reader bookmarked a story.
+model StoryFavorite {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  readerId  String   @db.Uuid
+  storyId   String   @db.Uuid
+  createdAt DateTime @default(now())
+  reader    Reader   @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([readerId, storyId])
+  @@index([readerId])
+  @@index([storyId])
+}
+
+/// Per-reader story reaction (1 = thumbs up). Unique per reader+story.
+model StoryRating {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  readerId  String   @db.Uuid
+  storyId   String   @db.Uuid
+  value     Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reader    Reader   @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([readerId, storyId])
+  @@index([storyId])
   @@index([readerId])
 }
 
