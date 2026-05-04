@@ -5,7 +5,6 @@ import { GlassCard } from '../components/ui/GlassCard';
 import { GradientButton } from '../components/ui/GradientButton';
 import { Chip } from '../components/ui/Chip';
 import { textStyles } from '../theme/typography';
-import { colors } from '../theme/colors';
 import type { Role } from '../context/AuthContext';
 
 type Props = {

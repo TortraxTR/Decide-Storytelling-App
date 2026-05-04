@@ -75,6 +75,7 @@ const EpisodeListScreen: React.FC<Props> = ({ navigation, route }) => {
           <TouchableOpacity
             onPress={() =>
               navigation.navigate('Episode', {
+                storyId,
                 episodeId: item.id,
                 episodeTitle: item.title,
                 storyTitle,
