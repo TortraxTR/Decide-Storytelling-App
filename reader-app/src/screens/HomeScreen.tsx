@@ -77,7 +77,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           onPress={() => navigation.navigate('Library')}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={styles.savedLink}>Saved</Text>
+          <Text style={styles.savedLink}>Liked</Text>
         </TouchableOpacity>
       </View>
 

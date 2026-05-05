@@ -13,6 +13,7 @@ import { textStyles } from '../theme/typography';
 import { colors } from '../theme/colors';
 import { fetchFavorites } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 type Props = {
   navigation: any;
@@ -57,9 +58,14 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [readerId]);
 
-  useEffect(() => {
+  //useEffect(() => {
+   // load();
+  //}, [load]);
+  useFocusEffect(
+  useCallback(() => {
     load();
-  }, [load]);
+  }, [load])
+);
 
   if (!readerId) {
     return (
