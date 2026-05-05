@@ -51,7 +51,7 @@ export default function AppShell() {
   }
 
   return (
-    <div className="shell">
+    <div className={`shell ${collapsed ? "shell--collapsed" : ""}`}>
       <aside className={`shell-sidebar ${collapsed ? "shell-sidebar--collapsed" : ""}`}>
         <div className="shell-sidebar__content">
           <button className="shell-brand" onClick={() => navigate("/stories")}>

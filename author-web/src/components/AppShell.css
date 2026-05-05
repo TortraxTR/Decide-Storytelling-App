@@ -4,6 +4,10 @@
   min-height: 100vh;
 }
 
+.shell--collapsed {
+  grid-template-columns: 88px minmax(0, 1fr);
+}
+
 .shell-sidebar {
   position: sticky;
   top: 0;
@@ -18,8 +22,13 @@
 }
 
 .shell-sidebar--collapsed {
-  grid-template-rows: 1fr auto;
   padding-inline: 12px;
+}
+
+.shell-sidebar--collapsed .shell-brand,
+.shell-sidebar--collapsed .shell-nav__item,
+.shell-sidebar--collapsed .shell-utility {
+  justify-content: center;
 }
 
 .shell-sidebar__content {
