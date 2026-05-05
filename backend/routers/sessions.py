@@ -64,7 +64,7 @@ async def create_or_resume_session(payload: SessionCreate):
     start_node_id = payload.currentNodeId
     if not start_node_id:
         start_node = await db.episodenode.find_first(
-            where={"episodeId": payload.episodeId, "isStart": True}
+            where={"episodeId": payload.episodeId}
         )
         if not start_node:
             raise HTTPException(
