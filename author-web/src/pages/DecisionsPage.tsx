@@ -35,7 +35,6 @@ export default function DecisionsPage() {
                 listDecisions(episodeId),
             ]);
             const sortedNodes = [...nodesData].sort((a, b) => {
-                if (a.isStart !== b.isStart) return a.isStart ? -1 : 1;
                 return a.assetKey.localeCompare(b.assetKey);
             });
             setNodes(sortedNodes);
@@ -106,7 +105,7 @@ export default function DecisionsPage() {
                             <select value={sourceNodeId} onChange={(e) => setSourceNodeId(e.target.value)}>
                                 {nodes.map((n) => (
                                     <option key={n.id} value={n.id}>
-                                        {n.isStart ? "⭐ " : ""}{n.assetKey}
+                                        {n.assetKey}
                                     </option>
                                 ))}
                             </select>
@@ -116,7 +115,7 @@ export default function DecisionsPage() {
                             <select value={targetNodeId} onChange={(e) => setTargetNodeId(e.target.value)}>
                                 {nodes.map((n) => (
                                     <option key={n.id} value={n.id}>
-                                        {n.isEnd ? "🏁 " : ""}{n.assetKey}
+                                        {n.assetKey}
                                     </option>
                                 ))}
                             </select>

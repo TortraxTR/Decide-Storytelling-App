@@ -47,8 +47,6 @@ export interface EpisodeNodeDto {
     assetHeight: number | null;
     canvasX?: number | null;
     canvasY?: number | null;
-    isStart: boolean;
-    isEnd: boolean;
 }
 
 export interface DecisionDto {
@@ -240,8 +238,6 @@ export async function createNode(payload: {
     assetHeight?: number;
     canvasX?: number;
     canvasY?: number;
-    isStart?: boolean;
-    isEnd?: boolean;
 }): Promise<EpisodeNodeDto> {
     return request<EpisodeNodeDto>("/nodes/", {
         method: "POST",
@@ -257,9 +253,7 @@ export async function updateNode(
         assetHeight: number;
         canvasX: number;
         canvasY: number;
-        isStart: boolean;
-        isEnd: boolean;
-    }>
+    }>,
 ): Promise<EpisodeNodeDto> {
     return request<EpisodeNodeDto>(`/nodes/${nodeId}`, {
         method: "PATCH",

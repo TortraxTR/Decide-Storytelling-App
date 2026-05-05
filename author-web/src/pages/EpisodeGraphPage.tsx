@@ -63,8 +63,6 @@ interface StoryNodeData {
   isConnectionPrompted: boolean;
   onPromptConnection: (nodeId: string) => void;
   onChoiceDraftChange: (choiceId: string, value: string) => void;
-  onToggleStart: (node: EpisodeNodeDto) => void;
-  onToggleEnd: (node: EpisodeNodeDto) => void;
   onDelete: (nodeId: string) => void;
   choiceDrafts: Record<string, string>;
 }
@@ -83,15 +81,11 @@ function StoryNode({ data, selected }: NodeProps) {
     isConnectionPrompted,
     onPromptConnection,
     onChoiceDraftChange,
-    onToggleStart,
-    onToggleEnd,
     onDelete,
     choiceDrafts,
   } = data as unknown as StoryNodeData;
 
   const badges = [
-    dto.isStart ? "Start" : null,
-    dto.isEnd ? "Ending" : null,
   ].filter(Boolean) as string[];
   const showLogicBox = choices.length > 1 || isConnectionPrompted;
 
@@ -175,18 +169,6 @@ function StoryNode({ data, selected }: NodeProps) {
                 ))}
               </div>
             )}
-
-            <div className="graph-node__actions">
-              <button className={`graph-node__toggle ${dto.isStart ? "graph-node__toggle--active" : ""}`} onClick={() => onToggleStart(dto)}>
-                Opening
-              </button>
-              <button
-                className={`graph-node__toggle ${dto.isEnd ? "graph-node__toggle--active graph-node__toggle--pink" : ""}`}
-                onClick={() => onToggleEnd(dto)}
-              >
-                Ending
-              </button>
-            </div>
           </div>
 
           {imageUrl && (
@@ -420,32 +402,31 @@ function dedupeDecisions(decisions: DecisionDto[]) {
 
 function planGraphNormalization(nodes: EpisodeNodeDto[], decisions: DecisionDto[]) {
   if (nodes.length === 0) {
-    return { deleteDecisionIds: [] as string[], deleteNodeIds: [] as string[], startNodeId: null as string | null };
+    return {
+      deleteDecisionIds: [] as string[],
+      deleteNodeIds: [] as string[],
+    };
   }
 
-  const sourceCount = new Map<string, number>();
-  const targetCount = new Map<string, number>();
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const decisionsById = new Map(decisions.map((decision) => [decision.id, decision]));
+
+  const incomingCount = new Map<string, number>();
   decisions.forEach((decision) => {
-    sourceCount.set(decision.sourceNodeId, (sourceCount.get(decision.sourceNodeId) ?? 0) + 1);
-    targetCount.set(decision.targetNodeId, (targetCount.get(decision.targetNodeId) ?? 0) + 1);
+    incomingCount.set(decision.targetNodeId, (incomingCount.get(decision.targetNodeId) ?? 0) + 1);
   });
 
-  const existingStartNodes = nodes.filter((node) => node.isStart);
-  const preferredStartNode = existingStartNodes.length === 1
-    ? existingStartNodes[0]
-    : [...nodes].sort((left, right) => {
-        const rightScore = (sourceCount.get(right.id) ?? 0) * 10 + (right.isStart ? 1 : 0);
-        const leftScore = (sourceCount.get(left.id) ?? 0) * 10 + (left.isStart ? 1 : 0);
-        return rightScore - leftScore;
-      })[0] ?? null;
+  const protectedStartNodeIds = new Set(
+    nodes.filter((node) => (incomingCount.get(node.id) ?? 0) === 0).map((node) => node.id),
+  );
 
-  const keepDecisionIds = new Set<string>();
-  const deleteDecisionIds = new Set<string>();
   const lastDecisionByPair = new Map<string, DecisionDto>();
-
   decisions.forEach((decision) => {
     lastDecisionByPair.set(`${decision.sourceNodeId}:${decision.targetNodeId}`, decision);
   });
+
+  const keepDecisionIds = new Set<string>();
+  const deleteDecisionIds = new Set<string>();
 
   decisions.forEach((decision) => {
     const pairKey = `${decision.sourceNodeId}:${decision.targetNodeId}`;
@@ -456,24 +437,23 @@ function planGraphNormalization(nodes: EpisodeNodeDto[], decisions: DecisionDto[
     }
   });
 
-  const remainingAfterPairs = decisions.filter((decision) => keepDecisionIds.has(decision.id));
+  const remainingAfterPair = decisions.filter((decision) => keepDecisionIds.has(decision.id));
   const lastDecisionByTarget = new Map<string, DecisionDto>();
-  remainingAfterPairs.forEach((decision) => {
+
+  remainingAfterPair.forEach((decision) => {
     lastDecisionByTarget.set(decision.targetNodeId, decision);
   });
-  remainingAfterPairs.forEach((decision) => {
+
+  remainingAfterPair.forEach((decision) => {
     if (lastDecisionByTarget.get(decision.targetNodeId)?.id !== decision.id) {
       deleteDecisionIds.add(decision.id);
       keepDecisionIds.delete(decision.id);
     }
   });
 
-  const nodeById = new Map(nodes.map((node) => [node.id, node]));
-  const decisionsById = new Map(decisions.map((decision) => [decision.id, decision]));
-  const remainingDecisionIds = new Set(decisions.map((decision) => decision.id).filter((id) => !deleteDecisionIds.has(id)));
-  const deleteNodeIds = new Set<string>();
+  const remainingDecisionIds = new Set([...keepDecisionIds]);
+  const removedNodeIds = new Set<string>();
   const candidateNodeIds: string[] = [];
-  const protectedNodeIds = new Set(preferredStartNode ? [preferredStartNode.id] : []);
   const relatedDecisionIdsByNode = new Map<string, string[]>();
 
   decisions.forEach((decision) => {
@@ -488,6 +468,7 @@ function planGraphNormalization(nodes: EpisodeNodeDto[], decisions: DecisionDto[
 
   function markDecisionRemoved(decisionId: string) {
     if (!remainingDecisionIds.has(decisionId)) return;
+
     const decision = decisionsById.get(decisionId);
     if (!decision) return;
 
@@ -498,21 +479,24 @@ function planGraphNormalization(nodes: EpisodeNodeDto[], decisions: DecisionDto[
 
   function countRemainingIncoming(nodeId: string) {
     let count = 0;
+
     for (const decisionId of remainingDecisionIds) {
       const decision = decisionsById.get(decisionId);
       if (!decision) continue;
-      if (decision.targetNodeId === nodeId && !deleteNodeIds.has(decision.sourceNodeId)) {
+
+      if (decision.targetNodeId === nodeId && !removedNodeIds.has(decision.sourceNodeId)) {
         count += 1;
       }
     }
+
     return count;
   }
 
   function markNodeRemoved(nodeId: string) {
-    if (deleteNodeIds.has(nodeId) || protectedNodeIds.has(nodeId)) return;
+    if (removedNodeIds.has(nodeId) || protectedStartNodeIds.has(nodeId)) return;
     if (!nodeById.has(nodeId)) return;
 
-    deleteNodeIds.add(nodeId);
+    removedNodeIds.add(nodeId);
 
     for (const decisionId of relatedDecisionIdsByNode.get(nodeId) ?? []) {
       markDecisionRemoved(decisionId);
@@ -526,15 +510,18 @@ function planGraphNormalization(nodes: EpisodeNodeDto[], decisions: DecisionDto[
 
   while (candidateNodeIds.length > 0) {
     const nodeId = candidateNodeIds.pop();
-    if (!nodeId || deleteNodeIds.has(nodeId) || protectedNodeIds.has(nodeId)) continue;
+    if (!nodeId || removedNodeIds.has(nodeId) || protectedStartNodeIds.has(nodeId)) continue;
+
+    const node = nodeById.get(nodeId);
+    if (!node) continue;
     if (countRemainingIncoming(nodeId) > 0) continue;
+
     markNodeRemoved(nodeId);
   }
 
   return {
     deleteDecisionIds: [...deleteDecisionIds],
-    deleteNodeIds: [...deleteNodeIds],
-    startNodeId: preferredStartNode?.id ?? null,
+    deleteNodeIds: [...removedNodeIds],
   };
 }
 
@@ -551,7 +538,17 @@ function collectBranchCleanup(
   const removedNodeIds = new Set<string>();
   const candidateNodeIds: string[] = [];
 
+  const incomingCountInitial = new Map<string, number>();
+  decisions.forEach((decision) => {
+    incomingCountInitial.set(decision.targetNodeId, (incomingCountInitial.get(decision.targetNodeId) ?? 0) + 1);
+  });
+
+  const protectedStartNodeIds = new Set(
+    nodes.filter((node) => (incomingCountInitial.get(node.id) ?? 0) === 0).map((node) => node.id),
+  );
+
   const relatedDecisionIdsByNode = new Map<string, string[]>();
+
   decisions.forEach((decision) => {
     const sourceIds = relatedDecisionIdsByNode.get(decision.sourceNodeId) ?? [];
     sourceIds.push(decision.id);
@@ -575,18 +572,21 @@ function collectBranchCleanup(
 
   function countRemainingIncoming(nodeId: string) {
     let count = 0;
+
     for (const decisionId of remainingDecisionIds) {
       const decision = decisionsById.get(decisionId);
       if (!decision) continue;
+
       if (decision.targetNodeId === nodeId && !removedNodeIds.has(decision.sourceNodeId)) {
         count += 1;
       }
     }
+
     return count;
   }
 
   function markNodeRemoved(nodeId: string) {
-    if (removedNodeIds.has(nodeId)) return;
+    if (removedNodeIds.has(nodeId) || protectedStartNodeIds.has(nodeId)) return;
 
     const node = nodeById.get(nodeId);
     if (!node) return;
@@ -603,10 +603,10 @@ function collectBranchCleanup(
 
   while (candidateNodeIds.length > 0) {
     const nodeId = candidateNodeIds.pop();
-    if (!nodeId || removedNodeIds.has(nodeId)) continue;
+    if (!nodeId || removedNodeIds.has(nodeId) || protectedStartNodeIds.has(nodeId)) continue;
 
     const node = nodeById.get(nodeId);
-    if (!node || node.isStart) continue;
+    if (!node) continue;
     if (countRemainingIncoming(nodeId) > 0) continue;
 
     markNodeRemoved(nodeId);
@@ -618,9 +618,9 @@ function collectBranchCleanup(
   };
 }
 
-function flowLabel(index: number, node: EpisodeNodeDto, variant: "primary" | "branch") {
-  if (node.isStart) return "Prologue";
-  if (node.isEnd) return "Resolution";
+function flowLabel(index: number, isStartNode: boolean, isEndNode: boolean, variant: "primary" | "branch") {
+  if (isStartNode) return "Prologue";
+  if (isEndNode) return "Resolution";
   if (variant === "branch") return `Scene ${String(index + 1).padStart(2, "0")}`;
   return `Scene ${String(index + 1).padStart(2, "0")}`;
 }
@@ -641,7 +641,7 @@ function sentenceCase(value: string) {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
-function narrativeTitle(index: number, node: EpisodeNodeDto, variant: "primary" | "branch", incomingTitle: string | undefined) {
+function narrativeTitle(index: number, isStartNode: boolean, isEndNode: boolean, node: EpisodeNodeDto, variant: "primary" | "branch", incomingTitle: string | undefined) {
   if (variant === "branch" && incomingTitle) {
     // Preserve user-entered casing for branch-driven titles.
     return incomingTitle.trim();
@@ -658,13 +658,14 @@ function narrativeTitle(index: number, node: EpisodeNodeDto, variant: "primary" 
   if (stem && !looksLikeRawExport) {
     return stem;
   }
-  if (node.isStart) return "The Whispering Woods";
-  if (node.isEnd) return "The Closing Turn";
+  if (isStartNode) return "The Whispering Woods";
+  if (isEndNode) return "The Closing Turn";
   return `Branching Scene ${index + 1}`;
 }
 
 function narrativeSummary(
-  node: EpisodeNodeDto,
+  isStartNode: boolean,
+  isEndNode: boolean,
   variant: "primary" | "branch",
   choiceCount: number,
   incomingTitle: string | undefined,
@@ -676,11 +677,11 @@ function narrativeSummary(
     return "Shape this beat as a consequence card, then drag it into place on the canvas.";
   }
 
-  if (node.isStart) {
+  if (isStartNode) {
     return "Set the opening atmosphere, then let the reader split the scene through the choices below.";
   }
 
-  if (node.isEnd) {
+  if (isEndNode) {
     return "Use this card as a final branch destination with a consequence that feels conclusive.";
   }
 
@@ -697,8 +698,22 @@ function narrativeSummary(
 
 function useEpisodeGraphStats(nodes: EpisodeNodeDto[], decisions: DecisionDto[]) {
   return useMemo(() => {
-    const startCount = nodes.filter((node) => node.isStart).length;
-    const endCount = nodes.filter((node) => node.isEnd).length;
+    // Compute graph metrics without isStart/isEnd props
+    const targetNodes = new Set(decisions.map(d => d.targetNodeId));
+    const sourceNodes = new Set(decisions.map(d => d.sourceNodeId));
+    
+    let startCount = 0;
+    let endCount = 0;
+
+    nodes.forEach(node => {
+      if (!targetNodes.has(node.id) && sourceNodes.has(node.id)) startCount++;
+      if (!sourceNodes.has(node.id) && targetNodes.has(node.id)) endCount++;
+      if (!targetNodes.has(node.id) && !sourceNodes.has(node.id)) {
+          // Floating nodes can be considered start/end conceptually if they are the only node.
+          if (nodes.length === 1) { startCount++; endCount++; }
+      }
+    });
+
     const progress = nodes.length === 0
       ? 0
       : Math.round(((startCount + endCount + decisions.length) / Math.max(nodes.length * 2, 1)) * 100);
@@ -777,8 +792,12 @@ export default function EpisodeGraphPage() {
 
     const nodes: Node[] = nextNodes.map((node, index) => {
       const choices = choiceMaps.outgoingBySource.get(node.id) ?? [];
+      const incomingCount = choiceMaps.incomingCountByNode.get(node.id) ?? 0;
       const incomingTitle = choiceMaps.incomingTitleByNode.get(node.id);
-      const variant = node.isStart || choices.length > 1 ? "primary" : "branch";
+      
+      const isStartNode = incomingCount === 0 && (choices.length > 0 || nextNodes.length === 1);
+      const isEndNode = choices.length === 0 && incomingCount > 0;
+      const variant = isStartNode || choices.length > 1 ? "primary" : "branch";
 
       return {
         id: node.id,
@@ -787,21 +806,21 @@ export default function EpisodeGraphPage() {
         data: {
           dto: node,
           variant,
-          eyebrow: flowLabel(index, node, variant),
-          title: narrativeTitle(index, node, variant, incomingTitle),
-          summary: narrativeSummary(node, variant, choices.length, incomingTitle),
+          isStartNode,
+          isEndNode,
+          eyebrow: flowLabel(index, isStartNode, isEndNode, variant),
+          title: narrativeTitle(index, isStartNode, isEndNode, node, variant, incomingTitle),
+          summary: narrativeSummary(isStartNode, isEndNode, variant, choices.length, incomingTitle),
           imageUrl: imageUrls[node.id] ?? null,
           choices,
           canStartConnection: choices.length === 0 || promptedNodeId === node.id,
-          canReceiveConnection: (choiceMaps.incomingCountByNode.get(node.id) ?? 0) === 0,
+          canReceiveConnection: incomingCount === 0,
           isConnectionPrompted: promptedNodeId === node.id,
           onPromptConnection: (nodeId: string) => {
             setPromptedNodeId(nodeId);
             setError("");
           },
           onChoiceDraftChange: handleChoiceDraftChange,
-          onToggleStart: handleToggleStart,
-          onToggleEnd: handleToggleEnd,
           onDelete: handleDeleteNode,
           choiceDrafts: nextChoiceDrafts,
         },
@@ -850,8 +869,7 @@ export default function EpisodeGraphPage() {
 
       if (
         normalization.deleteDecisionIds.length > 0 ||
-        normalization.deleteNodeIds.length > 0 ||
-        initialNodes.some((node) => node.isStart !== (node.id === normalization.startNodeId))
+        normalization.deleteNodeIds.length > 0
       ) {
         await Promise.all(normalization.deleteDecisionIds.map((decisionId) => deleteDecision(decisionId)));
         await clearSessionsForNodes(episodeId, normalization.deleteNodeIds);
@@ -860,18 +878,10 @@ export default function EpisodeGraphPage() {
         if (episodeId) {
           normalization.deleteNodeIds.forEach((nodeId) => removeStoredNodePosition(episodeId, nodeId));
         }
-
-        const survivingNodes = initialNodes.filter((node) => !normalization.deleteNodeIds.includes(node.id));
-        await Promise.all(
-          survivingNodes
-            .filter((node) => node.isStart !== (node.id === normalization.startNodeId))
-            .map((node) => updateNode(node.id, { isStart: node.id === normalization.startNodeId })),
-        );
       }
 
       const [nextNodes, nextDecisions] = normalization.deleteDecisionIds.length > 0 ||
-        normalization.deleteNodeIds.length > 0 ||
-        initialNodes.some((node) => node.isStart !== (node.id === normalization.startNodeId))
+        normalization.deleteNodeIds.length > 0
         ? await Promise.all([listNodes(episodeId), listDecisions(episodeId)])
         : [initialNodes, initialDecisions];
 
@@ -907,8 +917,7 @@ export default function EpisodeGraphPage() {
       ));
       if (
         normalization.deleteDecisionIds.length > 0 ||
-        normalization.deleteNodeIds.length > 0 ||
-        initialNodes.some((node) => node.isStart !== (node.id === normalization.startNodeId))
+        normalization.deleteNodeIds.length > 0
       ) {
         setError("Cleaned invalid graph data automatically.");
       }
@@ -924,25 +933,6 @@ export default function EpisodeGraphPage() {
     void load();
   }, [load]);
 
-  async function handleToggleStart(node: EpisodeNodeDto) {
-    try {
-      const updated = await updateNode(node.id, { isStart: !node.isStart });
-      setNodeDtos((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update opening state.");
-    }
-  }
-
-  async function handleToggleEnd(node: EpisodeNodeDto) {
-    try {
-      const updated = await updateNode(node.id, { isEnd: !node.isEnd });
-      setNodeDtos((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update ending state.");
-    }
-  }
 
   async function handleDeleteNode(nodeId: string) {
     if (!confirm("Delete this panel and all connected choices?")) return;
@@ -1074,7 +1064,6 @@ export default function EpisodeGraphPage() {
       const created = await createNode({
         episodeId,
         assetKey: key,
-        isStart: nodeDtos.length === 0,
       });
 
       writeStoredNodePosition(episodeId, created.id, position);
