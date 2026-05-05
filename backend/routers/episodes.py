@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from prisma.enums import PublishStatus
 from db import db
+from graph_validation import validate_episode_graph_for_publish
 
 router = APIRouter(prefix="/episodes", tags=["Episodes"])
 
@@ -56,6 +57,10 @@ async def update_episode(episode_id: str, payload: EpisodeUpdate):
     episode = await db.episode.find_unique(where={"id": episode_id})
     if not episode:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Episode not found")
+
+    if payload.status == PublishStatus.PUBLISHED:
+        await validate_episode_graph_for_publish(episode_id)
+
     return await db.episode.update(
         where={"id": episode_id},
         data=payload.model_dump(exclude_none=True)
