@@ -22,7 +22,7 @@ type RootStackParamList = {
   Episode: { storyId: string; episodeId?: string; episodeTitle?: string };
   AuthorDashboard: undefined;
   Home: undefined;
-  Library: undefined;
+  Library: { activeTab?: 'saved' | 'liked' };
   EpisodeList: { storyId: string; storyTitle: string };
 };
 
@@ -78,7 +78,7 @@ export default function App() {
             <Stack.Screen
               name="Library"
               component={LibraryScreen}
-              options={{ title: 'Saved' }}
+              options={{ title: 'Saved/Liked' }}
             />
             <Stack.Screen
               name="EpisodeList"

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,19 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+
 import { LiquidScreen } from '../components/ui/LiquidScreen';
 import { GlassCard } from '../components/ui/GlassCard';
+import { Chip } from '../components/ui/Chip';
 import { textStyles } from '../theme/typography';
 import { colors } from '../theme/colors';
 import { fetchFavorites } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { useFocusEffect } from '@react-navigation/native';
 
 type Props = {
   navigation: any;
+  route: any; // Parametreleri alabilmesi için route eklendi
 };
 
 type FavRow = {
@@ -26,8 +29,13 @@ type FavRow = {
   author: string;
 };
 
-const LibraryScreen: React.FC<Props> = ({ navigation }) => {
+const LibraryScreen: React.FC<Props> = ({ navigation, route }) => {
   const { readerId } = useAuth();
+  
+  // Ana ekrandan gelen parametreyi okuyoruz (Yoksa varsayılan 'saved')
+  const initialTab = route.params?.activeTab || 'saved';
+  const [tab, setTab] = useState<'saved' | 'liked'>(initialTab);
+
   const [items, setItems] = useState<FavRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,37 +48,45 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
     }
     setError(null);
     setLoading(true);
+    
     try {
-      const raw = await fetchFavorites(readerId);
+      let raw: any[] = [];
+      
+      if (tab === 'saved') {
+        raw = await fetchFavorites(readerId);
+      } else {
+        // LIKED SEKME MANTIĞI:
+        // Şimdilik çökmemesi için boş liste dönüyor. 
+        // Efe api.ts'ye "fetchLikedStories" fonksiyonunu eklediğinde burayı güncelleyeceğiz.
+        raw = []; 
+      }
+      
       setItems(
-        raw.map((f) => ({
+        raw.map((f: any) => ({
           id: f.id,
-          storyId: f.story.id,
-          title: f.story.title,
-          author: f.story.author?.user?.username || 'Unknown Author',
+          storyId: f.story?.id || f.storyId || '',
+          title: f.story?.title || f.title || 'Untitled',
+          author: f.story?.author?.user?.username || 'Unknown Author',
         })),
       );
     } catch (e: any) {
-      setError(e?.message || 'Could not load saved stories');
+      setError(e?.message || `Could not load ${tab} stories`);
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [readerId]);
+  }, [readerId, tab]);
 
-  //useEffect(() => {
-   // load();
-  //}, [load]);
   useFocusEffect(
-  useCallback(() => {
-    load();
-  }, [load])
-);
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   if (!readerId) {
     return (
       <LiquidScreen>
-        <Text style={styles.muted}>Sign in as a reader to see saved stories.</Text>
+        <Text style={styles.muted}>Sign in as a reader to see your lists.</Text>
       </LiquidScreen>
     );
   }
@@ -79,7 +95,14 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
     <LiquidScreen>
       <View style={styles.hero}>
         <Text style={textStyles.label}>Library</Text>
-        <Text style={[textStyles.headline, styles.title]}>Saved stories</Text>
+        <Text style={[textStyles.headline, styles.title]}>
+          {tab === 'saved' ? 'Saved stories' : 'Liked stories'}
+        </Text>
+      </View>
+
+      <View style={styles.tabRow}>
+        <Chip label="Saved" selected={tab === 'saved'} onPress={() => setTab('saved')} />
+        <Chip label="Liked" selected={tab === 'liked'} onPress={() => setTab('liked')} />
       </View>
 
       {loading && (
@@ -99,7 +122,11 @@ const LibraryScreen: React.FC<Props> = ({ navigation }) => {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           !loading ? (
-            <Text style={styles.muted}>No saved stories yet. Tap ♡ on a story while reading.</Text>
+            <Text style={styles.muted}>
+              {tab === 'saved' 
+                ? 'No saved stories yet. Tap ♡ on a story while reading.' 
+                : 'No liked stories yet. Tap 👍 on a story while reading.'}
+            </Text>
           ) : null
         }
         renderItem={({ item }) => (
@@ -130,6 +157,12 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 4,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
   },
   loadingRow: {
     flexDirection: 'row',
