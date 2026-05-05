@@ -78,14 +78,12 @@ model Episode {
 model EpisodeNode {
   id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   episodeId         String        @db.Uuid
-  isStart           Boolean       @default(false)
-  isEnd             Boolean       @default(false)
-  assetKey          String        @db.VarChar(1024)
   assetHeight       Int?
+  assetKey          String        @db.VarChar(1024)
   assetWidth        Int?
   canvasX           Float?
   canvasY           Float?
-  textField         String?       @db.Text
+  textField         String?
   outgoingDecisions Decision[]    @relation("SourceNode")
   incomingDecisions Decision[]    @relation("TargetNode")
   episode           Episode       @relation(fields: [episodeId], references: [id], onDelete: Cascade)
