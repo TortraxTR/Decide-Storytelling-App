@@ -169,10 +169,6 @@ export default function StoriesPage() {
         <div className="stories-hero__copy">
           <p className="eyebrow">Story Library</p>
           <h1 className="page-title">Shape every story as a branching world.</h1>
-          <p className="page-subtitle">
-            Your proposal centers on interactive narrative flow. This library is the editorial layer for that engine:
-            stories at the top, episodes beneath them, and graph-based scene logic inside each episode.
-          </p>
         </div>
 
         <div className="glass-panel stories-hero__actions">
