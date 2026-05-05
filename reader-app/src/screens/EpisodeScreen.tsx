@@ -38,7 +38,7 @@ import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
-type Node = { id: string; assetKey: string; isStart: boolean; isEnd: boolean };
+type Node = { id: string; assetKey: string };
 type Decision = {
   id: string;
   text: string;
@@ -106,8 +106,8 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
   const [sessionReaderId, setSessionReaderId] = useState<string | null>(null);
 
   const endSessionIfNeeded = useCallback(
-    async (node: Node, sid?: string) => {
-      if (!sid || !node.isEnd) return;
+    async (sid?: string, shouldEnd = false) => {
+      if (!sid || !shouldEnd) return;
       try {
         await deleteSession(sid);
       } catch {
@@ -127,6 +127,7 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
       let node: Node | undefined = startNode;
       let tailNode: Node = startNode;
       let tailDecisions: Decision[] = [];
+      let reachedTerminalNode = false;
 
       while (node && !visited.has(node.id)) {
         visited.add(node.id);
@@ -134,13 +135,14 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
         const mediaUrl = await fetchNodeMediaUrl(node.id);
         collected.push({ node, mediaUrl });
 
-        if (node.isEnd) {
+        const outgoing = await fetchDecisionsForNode(epId, node.id);
+
+        if (outgoing.length === 0) {
           tailNode = node;
           tailDecisions = [];
+          reachedTerminalNode = true;
           break;
         }
-
-        const outgoing = await fetchDecisionsForNode(epId, node.id);
 
         if (outgoing.length === 1) {
           const edge = outgoing[0];
@@ -161,7 +163,7 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
         break;
       }
 
-      await endSessionIfNeeded(tailNode, sid);
+      await endSessionIfNeeded(sid, reachedTerminalNode);
 
       return {
         id: Date.now().toString() + tailNode.id,
@@ -180,7 +182,6 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
         setError('');
 
         let targetEpisodeId = selectedEpisodeId;
-
         let resolvedStoryId = storyId ?? '';
 
         if (targetEpisodeId && !resolvedStoryId) {
@@ -199,9 +200,7 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
             setError('This story has no episodes yet.');
             return;
           }
-          const firstEpisode = story.episodes.sort(
-            (a: any, b: any) => a.order - b.order,
-          )[0];
+          const firstEpisode = story.episodes.sort((a: any, b: any) => a.order - b.order)[0];
           targetEpisodeId = firstEpisode.id;
           resolvedStoryId = resolvedStoryId || story.id;
         }
@@ -214,7 +213,19 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
         for (const n of nodes) byId[n.id] = n;
         episodeNodesByIdRef.current = byId;
 
-        const startNode = nodes.find(n => n.isStart);
+        const outgoingByNodeId = new Map<string, Decision[]>();
+        await Promise.all(
+          nodes.map(async (node) => {
+            outgoingByNodeId.set(node.id, await fetchDecisionsForNode(targetEpisodeId, node.id));
+          }),
+        );
+
+        const targetIds = new Set<string>();
+        for (const decisions of outgoingByNodeId.values()) {
+          for (const decision of decisions) targetIds.add(decision.targetNodeId);
+        }
+
+        const startNode = nodes.find((n) => !targetIds.has(n.id)) ?? nodes[0];
         if (!startNode) {
           setError('Episode has no start node.');
           return;
@@ -231,19 +242,10 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
         let firstBlock: HistoryItem;
 
         if (activeReaderId) {
-          const session = await createOrResumeSession(
-            activeReaderId,
-            targetEpisodeId,
-            startNode.id,
-          );
+          const session = await createOrResumeSession(activeReaderId, targetEpisodeId, startNode.id);
           setSessionId(session.id);
-          const resumedNode =
-            nodes.find(n => n.id === session.currentNodeId) ?? startNode;
-          firstBlock = await hydrateLinearPath(
-            resumedNode,
-            targetEpisodeId,
-            session.id,
-          );
+          const resumedNode = nodes.find(n => n.id === session.currentNodeId) ?? startNode;
+          firstBlock = await hydrateLinearPath(resumedNode, targetEpisodeId, session.id);
         } else {
           firstBlock = await hydrateLinearPath(startNode, targetEpisodeId);
         }
@@ -446,13 +448,13 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
                 />
               ))}
 
-              {item.tailNode.isEnd && (
+              {item.tailNode && !item.decisions.length && (
                 <View style={styles.endContainer}>
                   <Text style={styles.endText}>— The End —</Text>
                 </View>
               )}
 
-              {!item.tailNode.isEnd && (
+              {(item.decisions.length > 0 || item.selectedDecision) && (
                 <View style={styles.decisionContainer}>
                   {item.selectedDecision ? (
                     <View style={styles.selectedBubbleWrapper}>

@@ -27,8 +27,6 @@ export default function NodesPage() {
     const [error, setError] = useState("");
 
     const [assetKey, setAssetKey] = useState("");
-    const [isStart, setIsStart] = useState(false);
-    const [isEnd, setIsEnd] = useState(false);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
 
@@ -38,11 +36,7 @@ export default function NodesPage() {
         setLoading(true);
         try {
             const data = await listNodes(episodeId);
-            const sorted = [...data].sort((a, b) => {
-                if (a.isStart !== b.isStart) return a.isStart ? -1 : 1;
-                if (a.isEnd !== b.isEnd) return a.isEnd ? 1 : -1;
-                return a.id.localeCompare(b.id);
-            });
+            const sorted = [...data].sort((a, b) => a.id.localeCompare(b.id));
             setNodes(sorted);
         } catch (e) {
             setError(e instanceof Error ? e.message : "Failed to load nodes");
@@ -96,12 +90,8 @@ export default function NodesPage() {
             await createNode({
                 episodeId,
                 assetKey: assetKey.trim(),
-                isStart,
-                isEnd,
             });
             setAssetKey("");
-            setIsStart(false);
-            setIsEnd(false);
             await refresh();
         } catch (e) {
             setError(e instanceof Error ? e.message : "Failed to create node");
@@ -171,14 +161,7 @@ export default function NodesPage() {
                         ) : null}
                     </label>
                     <div className="form-row">
-                        <label className="checkbox">
-                            <input type="checkbox" checked={isStart} onChange={(e) => setIsStart(e.target.checked)} />
-                            Start node
-                        </label>
-                        <label className="checkbox">
-                            <input type="checkbox" checked={isEnd} onChange={(e) => setIsEnd(e.target.checked)} />
-                            End node
-                        </label>
+                        {/* removed isStart / isEnd toggles */}
                     </div>
                     <div className="form-actions">
                         <button
@@ -206,9 +189,7 @@ export default function NodesPage() {
                             {nodes.map((n) => (
                                 <div className="list-item" key={n.id}>
                                     <div className="list-meta">
-                                        <div className="list-title">
-                                            {n.isStart ? "⭐ " : ""}{n.isEnd ? "🏁 " : ""}{n.assetKey}
-                                        </div>
+                                        <div className="list-title">{n.assetKey}</div>
                                         <div className="muted">ID: {n.id}</div>
                                     </div>
                                     <div className="list-buttons">

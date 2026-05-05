@@ -8,7 +8,7 @@ router = APIRouter(prefix="/sessions", tags=["Read Sessions"])
 class SessionCreate(BaseModel):
     readerId: str
     episodeId: str
-    currentNodeId: Optional[str] = None  # auto-resolved from isStart node if omitted
+    currentNodeId: Optional[str] = None
 
 class SessionAdvance(BaseModel):
     decisionId: str
@@ -45,7 +45,7 @@ async def get_session(session_id: str):
 async def create_or_resume_session(payload: SessionCreate):
     """Create a new session or resume an existing one for a reader/episode pair.
 
-    If `currentNodeId` is omitted the start node (isStart=True) is resolved automatically.
+    If `currentNodeId` is omitted the start node is inferred as the node with no incoming decisions.
     """
     # Resume existing session if one already exists
     existing = await db.readsession.find_unique(
@@ -63,13 +63,15 @@ async def create_or_resume_session(payload: SessionCreate):
     # Resolve start node
     start_node_id = payload.currentNodeId
     if not start_node_id:
-        start_node = await db.episodenode.find_first(
-            where={"episodeId": payload.episodeId}
+        nodes = await db.episodenode.find_many(
+            where={"episodeId": payload.episodeId},
+            include={"incomingDecisions": True},
         )
+        start_node = next((node for node in nodes if not node.incomingDecisions), None)
         if not start_node:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="This episode has no start node. The author must mark a node as the starting point.",
+                detail="This episode has no start node. The author must create one node with no incoming decisions.",
             )
         start_node_id = start_node.id
 

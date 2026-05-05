@@ -157,7 +157,7 @@ export const fetchEpisodeNodes = async (episodeId: string) => {
   const response = await fetch(`${BASE_URL}/nodes/?episode_id=${episodeId}`);
   const data = await response.json();
   if (!response.ok) throw new Error(data.detail || 'Failed to fetch nodes');
-  return data as { id: string; assetKey: string; isStart: boolean; isEnd: boolean }[];
+  return data as { id: string; assetKey: string }[];
 };
 
 export const fetchNodeMediaUrl = async (nodeId: string): Promise<string> => {
@@ -210,7 +210,7 @@ export const advanceSession = async (sessionId: string, decisionId: string) => {
   return data as {
     id: string;
     currentNodeId: string;
-    currentNode: { id: string; assetKey: string; isStart: boolean; isEnd: boolean };
+    currentNode: { id: string; assetKey: string };
   };
 };
 
