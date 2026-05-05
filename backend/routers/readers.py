@@ -36,13 +36,13 @@ async def continue_reading(
         where={"readerId": reader_id},
         include={
             "episode": {"include": {"story": {"include": {"author": {"include": {"user": True}}}}}},
-            "currentNode": True,
+            "currentNode": {"include": {"outgoingDecisions": True}},
         },
         order={"updatedAt": "desc"},
     )
     out: list[dict[str, Any]] = []
     for s in sessions:
-        completed = bool(s.currentNode and s.currentNode.isEnd)
+        completed = bool(s.currentNode and not s.currentNode.outgoingDecisions)
         if incomplete_only and completed:
             continue
         row = jsonable_encoder(s)

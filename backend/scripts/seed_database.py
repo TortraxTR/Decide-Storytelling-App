@@ -75,8 +75,6 @@ async def seed_database():
             data={
                 "storyId": story1.id,
                 "title": "The Discovery",
-                "description": "Our hero discovers an old map in their grandmother's attic.",
-                "thumbnail": "https://example.com/discovery.jpg",
                 "order": 0,
             }
         )
@@ -84,8 +82,6 @@ async def seed_database():
             data={
                 "storyId": story1.id,
                 "title": "The Journey Begins",
-                "description": "Setting out on an expedition to find the lost city.",
-                "thumbnail": "https://example.com/journey.jpg",
                 "order": 1,
             }
         )
@@ -96,50 +92,44 @@ async def seed_database():
         node1_1_1 = await db.episodenode.create(
             data={
                 "episodeId": episode1_1.id,
-                "contentUrl": "https://example.com/content/intro.html",
-                "isStart": True,
-                "isEnd": False,
+                "assetKey": "seed/lost-city/discovery/intro.png",
+                "textField": "Our hero discovers an old map in their grandmother's attic.",
             }
         )
         node1_1_2 = await db.episodenode.create(
             data={
                 "episodeId": episode1_1.id,
-                "contentUrl": "https://example.com/content/chamber.html",
-                "isStart": False,
-                "isEnd": False,
+                "assetKey": "seed/lost-city/discovery/chamber.png",
+                "textField": "A hidden chamber reveals a second path.",
             }
         )
         node1_1_3 = await db.episodenode.create(
             data={
                 "episodeId": episode1_1.id,
-                "contentUrl": "https://example.com/content/ending.html",
-                "isStart": False,
-                "isEnd": True,
+                "assetKey": "seed/lost-city/discovery/ending.png",
+                "textField": "The first clue points toward the lost city.",
             }
         )
 
         node1_2_1 = await db.episodenode.create(
             data={
                 "episodeId": episode1_2.id,
-                "contentUrl": "https://example.com/content/journey-start.html",
-                "isStart": True,
-                "isEnd": False,
+                "assetKey": "seed/lost-city/journey/start.png",
+                "textField": "The journey begins at sunrise.",
             }
         )
         node1_2_2 = await db.episodenode.create(
             data={
                 "episodeId": episode1_2.id,
-                "contentUrl": "https://example.com/content/forest.html",
-                "isStart": False,
-                "isEnd": False,
+                "assetKey": "seed/lost-city/journey/forest.png",
+                "textField": "The forest path grows darker.",
             }
         )
         node1_2_3 = await db.episodenode.create(
             data={
                 "episodeId": episode1_2.id,
-                "contentUrl": "https://example.com/content/ruins.html",
-                "isStart": False,
-                "isEnd": True,
+                "assetKey": "seed/lost-city/journey/ruins.png",
+                "textField": "Ancient ruins rise from the fog.",
             }
         )
         print(f"Created 6 episode nodes")
