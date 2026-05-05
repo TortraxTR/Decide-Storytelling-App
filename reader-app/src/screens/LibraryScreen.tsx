@@ -14,7 +14,7 @@ import { GlassCard } from '../components/ui/GlassCard';
 import { Chip } from '../components/ui/Chip';
 import { textStyles } from '../theme/typography';
 import { colors } from '../theme/colors';
-import { fetchFavorites } from '../api';
+import { fetchFavorites, fetchRating } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 type Props = {
@@ -55,10 +55,7 @@ const LibraryScreen: React.FC<Props> = ({ navigation, route }) => {
       if (tab === 'saved') {
         raw = await fetchFavorites(readerId);
       } else {
-        // LIKED SEKME MANTIĞI:
-        // Şimdilik çökmemesi için boş liste dönüyor. 
-        // Efe api.ts'ye "fetchLikedStories" fonksiyonunu eklediğinde burayı güncelleyeceğiz.
-        raw = []; 
+        raw = await fetchRating(readerId);
       }
       
       setItems(
