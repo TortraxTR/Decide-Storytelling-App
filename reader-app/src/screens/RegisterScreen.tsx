@@ -6,7 +6,7 @@ import { GradientButton } from '../components/ui/GradientButton';
 import { TextField } from '../components/ui/TextField';
 import { textStyles } from '../theme/typography';
 import { colors } from '../theme/colors';
-import { register, getReaderByUserId, createReader } from '../api';
+import { register, ensureReader } from '../api';
 import { useAuth, Role } from '../context/AuthContext';
 
 type Props = {
@@ -39,16 +39,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
       );
 
       if (role === 'reader') {
-        const readers = await getReaderByUserId(user_id);
-        let readerId: string;
-
-        if (readers.length > 0) {
-          readerId = readers[0].id;
-        } else {
-          const created = await createReader(user_id);
-          readerId = created.id;
-        }
-
+        const { id: readerId } = await ensureReader(user_id);
         setAuth({ userId: user_id, readerId, role: 'reader' });
         navigation.reset({
           index: 0,

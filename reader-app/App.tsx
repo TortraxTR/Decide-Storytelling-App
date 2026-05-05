@@ -11,6 +11,7 @@ import EpisodeScreen from './src/screens/EpisodeScreen';
 import AuthorDashboardScreen from './src/screens/AuthorDashboardScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import EpisodeListScreen from './src/screens/EpisodeListScreen';
+import LibraryScreen from './src/screens/LibraryScreen';
 import { AuthProvider } from './src/context/AuthContext';
 
 type RootStackParamList = {
@@ -21,6 +22,7 @@ type RootStackParamList = {
   Episode: { storyId: string; episodeId?: string; episodeTitle?: string };
   AuthorDashboard: undefined;
   Home: undefined;
+  Library: undefined;
   EpisodeList: { storyId: string; storyTitle: string };
 };
 
@@ -72,6 +74,11 @@ export default function App() {
               name="Home"
               component={HomeScreen}
               options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Library"
+              component={LibraryScreen}
+              options={{ title: 'Saved' }}
             />
             <Stack.Screen
               name="EpisodeList"

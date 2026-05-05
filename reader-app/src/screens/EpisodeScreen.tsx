@@ -14,14 +14,20 @@ import LinearGradient from 'react-native-linear-gradient';
 
 import {
   fetchStory,
+  fetchEpisode,
   fetchEpisodeNodes,
   fetchNodeMediaUrl,
   fetchDecisionsForNode,
-  getReaderByUserId,
-  createReader,
+  ensureReader,
   createOrResumeSession,
   advanceSession,
   deleteSession,
+  addFavorite,
+  removeFavorite,
+  upsertStoryRating,
+  removeStoryRating,
+  fetchStoryRatingSummary,
+  fetchFavorites,
 } from '../api';
 
 import { LiquidScreen } from '../components/ui/LiquidScreen';
@@ -63,7 +69,7 @@ type Props = {
 };
 
 const EpisodeScreen: React.FC<Props> = ({ route }) => {
-  const { userId: authUserId } = useAuth();
+  const { userId: authUserId, readerId: authReaderId } = useAuth();
 
   const params = route?.params ?? {};
   const {
@@ -89,6 +95,15 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
   // const scrollViewRef = useRef<ScrollView>(null);
 
   const episodeNodesByIdRef = useRef<Record<string, Node>>({});
+
+  const [engagementStoryId, setEngagementStoryId] = useState<string | null>(null);
+  const [thumbsUpCount, setThumbsUpCount] = useState(0);
+  const [myRated, setMyRated] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const [ratingBusy, setRatingBusy] = useState(false);
+  /** When init calls `ensureReader`, context may not yet have `readerId` — use for social API. */
+  const [sessionReaderId, setSessionReaderId] = useState<string | null>(null);
 
   const endSessionIfNeeded = useCallback(
     async (node: Node, sid?: string) => {
@@ -166,12 +181,20 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
 
         let targetEpisodeId = selectedEpisodeId;
 
+        let resolvedStoryId = storyId ?? '';
+
+        if (targetEpisodeId && !resolvedStoryId) {
+          const epQuick = await fetchEpisode(targetEpisodeId);
+          resolvedStoryId = epQuick.storyId;
+        }
+
         if (!targetEpisodeId) {
-          if (!storyId) {
+          const sid = resolvedStoryId || storyId;
+          if (!sid) {
             setError('Episode information is missing.');
             return;
           }
-          const story = await fetchStory(storyId);
+          const story = await fetchStory(sid);
           if (!story.episodes || story.episodes.length === 0) {
             setError('This story has no episodes yet.');
             return;
@@ -180,9 +203,11 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
             (a: any, b: any) => a.order - b.order,
           )[0];
           targetEpisodeId = firstEpisode.id;
+          resolvedStoryId = resolvedStoryId || story.id;
         }
 
         setEpisodeId(targetEpisodeId);
+        setEngagementStoryId(resolvedStoryId || null);
 
         const nodes = await fetchEpisodeNodes(targetEpisodeId);
         const byId: Record<string, Node> = {};
@@ -195,23 +220,19 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
           return;
         }
 
-        let readerId: string | null = null;
+        let activeReaderId: string | null = authReaderId;
 
-        if (effectiveUserId) {
-          const readers = await getReaderByUserId(effectiveUserId);
-          if (readers.length > 0) {
-            readerId = readers[0].id;
-          } else {
-            const newReader = await createReader(effectiveUserId);
-            readerId = newReader.id;
-          }
+        if (effectiveUserId && !activeReaderId) {
+          const ensured = await ensureReader(effectiveUserId);
+          activeReaderId = ensured.id;
         }
+        setSessionReaderId(activeReaderId);
 
         let firstBlock: HistoryItem;
 
-        if (readerId) {
+        if (activeReaderId) {
           const session = await createOrResumeSession(
-            readerId,
+            activeReaderId,
             targetEpisodeId,
             startNode.id,
           );
@@ -236,7 +257,84 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
     };
 
     init();
-  }, [storyId, selectedEpisodeId, effectiveUserId, hydrateLinearPath]);
+  }, [storyId, selectedEpisodeId, effectiveUserId, hydrateLinearPath, authReaderId]);
+
+  useEffect(() => {
+    const rid = authReaderId || sessionReaderId;
+    if (!engagementStoryId || !rid) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [summary, favs] = await Promise.all([
+          fetchStoryRatingSummary(engagementStoryId, rid),
+          fetchFavorites(rid),
+        ]);
+        if (cancelled) {
+          return;
+        }
+        setThumbsUpCount(summary.thumbsUpCount);
+        setMyRated(summary.myValue === 1);
+        setIsFavorite(favs.some(f => f.storyId === engagementStoryId));
+      } catch {
+        if (!cancelled) {
+          setThumbsUpCount(0);
+          setMyRated(false);
+          setIsFavorite(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [engagementStoryId, authReaderId, sessionReaderId]);
+
+  const readerForSocial = authReaderId || sessionReaderId;
+
+  const handleToggleFavorite = async () => {
+    if (!readerForSocial || !engagementStoryId) {
+      return;
+    }
+    setFavoriteBusy(true);
+    try {
+      if (isFavorite) {
+        await removeFavorite(readerForSocial, engagementStoryId);
+        setIsFavorite(false);
+      } else {
+        await addFavorite(readerForSocial, engagementStoryId);
+        setIsFavorite(true);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Could not update library');
+    } finally {
+      setFavoriteBusy(false);
+    }
+  };
+
+  const handleToggleRating = async () => {
+    if (!readerForSocial || !engagementStoryId) {
+      return;
+    }
+    setRatingBusy(true);
+    try {
+      if (myRated) {
+        await removeStoryRating(readerForSocial, engagementStoryId);
+        setMyRated(false);
+        const s = await fetchStoryRatingSummary(engagementStoryId, readerForSocial);
+        setThumbsUpCount(s.thumbsUpCount);
+      } else {
+        await upsertStoryRating(readerForSocial, engagementStoryId, 1);
+        setMyRated(true);
+        const s = await fetchStoryRatingSummary(engagementStoryId, readerForSocial);
+        setThumbsUpCount(s.thumbsUpCount);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Could not update rating');
+    } finally {
+      setRatingBusy(false);
+    }
+  };
 
   const handleDecision = async (decision: Decision, historyIndex: number) => {
     if (advancing) return;
@@ -300,6 +398,33 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
           {displayTitle}
         </Text>
       </View>
+
+      {readerForSocial && engagementStoryId ? (
+        <View style={styles.engagementRow}>
+          <TouchableOpacity
+            onPress={handleToggleFavorite}
+            disabled={favoriteBusy}
+            style={styles.engagementBtn}
+          >
+            <Text style={styles.engagementBtnText}>
+              {favoriteBusy ? '…' : isFavorite ? '♥ Saved' : '♡ Save'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleToggleRating}
+            disabled={ratingBusy}
+            style={styles.engagementBtn}
+          >
+            <Text style={styles.engagementBtnText}>
+              {ratingBusy
+                ? '…'
+                : myRated
+                  ? `👍 ${thumbsUpCount} (tap to unlike)`
+                  : `👍 ${thumbsUpCount} · Like`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <FlatList
         data={history}
@@ -406,6 +531,23 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     marginTop: 4,
+  },
+  engagementRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 24,
+    paddingBottom: 8,
+    gap: 10,
+  },
+  engagementBtn: {
+    backgroundColor: colors.surfaceContainerHigh,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  engagementBtnText: {
+    ...textStyles.bodySm,
+    color: colors.onSurface,
   },
   scroll: {
     flex: 1,

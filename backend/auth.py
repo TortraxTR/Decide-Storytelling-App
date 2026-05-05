@@ -1,3 +1,5 @@
+from typing import Optional
+
 import bcrypt
 
 def hash_password(password: str) -> str:
@@ -5,7 +7,7 @@ def hash_password(password: str) -> str:
     hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
     return hashed.decode("utf-8")
 
-def verify_password(plain_password: str, stored_hash: str | None) -> bool:
+def verify_password(plain_password: str, stored_hash: Optional[str]) -> bool:
     if not stored_hash:
         return False
     try:
