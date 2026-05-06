@@ -63,6 +63,7 @@ interface StoryNodeData {
   isConnectionPrompted: boolean;
   onPromptConnection: (nodeId: string) => void;
   onChoiceDraftChange: (choiceId: string, value: string) => void;
+  onEditText: (node: EpisodeNodeDto) => void;
   onDelete: (nodeId: string) => void;
   choiceDrafts: Record<string, string>;
 }
@@ -81,6 +82,7 @@ function StoryNode({ data, selected }: NodeProps) {
     isConnectionPrompted,
     onPromptConnection,
     onChoiceDraftChange,
+    onEditText,
     onDelete,
     choiceDrafts,
   } = data as unknown as StoryNodeData;
@@ -105,9 +107,15 @@ function StoryNode({ data, selected }: NodeProps) {
         <div className="graph-node__content">
           <div className="graph-node__topline">
             <p className="graph-node__eyebrow">{eyebrow}</p>
-            <button className="graph-node__icon" onClick={() => onDelete(dto.id)} title="Delete panel">
-              <span className="material-symbols-outlined">more_vert</span>
-            </button>
+            <div className="graph-node__icon-row">
+              <button className="graph-node__text-button" onClick={() => onEditText(dto)} title="Edit panel text">
+                <span className="material-symbols-outlined">edit_note</span>
+                <span>Panel Text</span>
+              </button>
+              <button className="graph-node__icon" onClick={() => onDelete(dto.id)} title="Delete panel">
+                <span className="material-symbols-outlined">more_vert</span>
+              </button>
+            </div>
           </div>
 
           <div className="graph-node__copy">
@@ -770,6 +778,8 @@ export default function EpisodeGraphPage() {
   const [error, setError] = useState("");
   const [selectedDecision, setSelectedDecision] = useState<DecisionDto | null>(null);
   const [decisionText, setDecisionText] = useState("");
+  const [selectedTextNode, setSelectedTextNode] = useState<EpisodeNodeDto | null>(null);
+  const [panelText, setPanelText] = useState("");
   const [choiceDrafts, setChoiceDrafts] = useState<Record<string, string>>({});
   const [savingGraph, setSavingGraph] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -810,7 +820,7 @@ export default function EpisodeGraphPage() {
           isEndNode,
           eyebrow: flowLabel(index, isStartNode, isEndNode, variant),
           title: narrativeTitle(index, isStartNode, isEndNode, node, variant, incomingTitle),
-          summary: narrativeSummary(isStartNode, isEndNode, variant, choices.length, incomingTitle),
+          summary: node.textField?.trim() || narrativeSummary(isStartNode, isEndNode, variant, choices.length, incomingTitle),
           imageUrl: imageUrls[node.id] ?? null,
           choices,
           canStartConnection: choices.length === 0 || promptedNodeId === node.id,
@@ -821,6 +831,7 @@ export default function EpisodeGraphPage() {
             setError("");
           },
           onChoiceDraftChange: handleChoiceDraftChange,
+          onEditText: handleEditNodeText,
           onDelete: handleDeleteNode,
           choiceDrafts: nextChoiceDrafts,
         },
@@ -953,6 +964,27 @@ export default function EpisodeGraphPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete panel.");
+    }
+  }
+
+  function handleEditNodeText(node: EpisodeNodeDto) {
+    setSelectedTextNode(node);
+    setPanelText(node.textField ?? "");
+  }
+
+  async function handleSaveNodeText() {
+    if (!selectedTextNode) return;
+
+    try {
+      const updated = await updateNode(selectedTextNode.id, {
+        textField: panelText.trim() || "",
+      });
+      setSelectedTextNode(null);
+      setPanelText("");
+      setNodeDtos((current) => current.map((node) => (node.id === updated.id ? updated : node)));
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save panel text.");
     }
   }
 
@@ -1362,6 +1394,37 @@ export default function EpisodeGraphPage() {
               <button className="app-btn app-btn--danger" onClick={() => void handleDeleteDecision()}>Delete</button>
               <button className="app-btn app-btn--secondary" onClick={() => setSelectedDecision(null)}>Cancel</button>
               <button className="app-btn app-btn--primary" onClick={() => void handleSaveDecision()}>Save Choice</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedTextNode && (
+        <div className="app-modal-backdrop" onClick={() => setSelectedTextNode(null)}>
+          <div className="glass-panel app-modal graph-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="app-modal__head">
+              <div>
+                <h2 className="app-modal__title">Edit panel text</h2>
+                <p className="app-modal__copy">This text appears with the panel in the reader app.</p>
+              </div>
+              <button className="app-modal__close" onClick={() => setSelectedTextNode(null)}>
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="app-modal__body">
+              <label className="app-field">
+                <span className="app-field__label">Panel Text</span>
+                <textarea
+                  className="app-input graph-modal__textarea"
+                  value={panelText}
+                  onChange={(event) => setPanelText(event.target.value)}
+                  autoFocus
+                />
+              </label>
+            </div>
+            <div className="app-modal__actions">
+              <button className="app-btn app-btn--secondary" onClick={() => setSelectedTextNode(null)}>Cancel</button>
+              <button className="app-btn app-btn--primary" onClick={() => void handleSaveNodeText()}>Save Text</button>
             </div>
           </div>
         </div>

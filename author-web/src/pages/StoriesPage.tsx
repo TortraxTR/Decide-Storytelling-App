@@ -172,11 +172,25 @@ export default function StoriesPage() {
         </div>
 
         <div className="glass-panel stories-hero__actions">
-          <p>Start a new story shell, add a cover, then open episodes to build panels and choices.</p>
-          <button className="app-btn app-btn--primary" onClick={() => setShowCreate(true)}>
+          <p>Start a story shell, then move through episodes and panels without leaving this workspace.</p>
+          <button className="app-btn app-btn--primary stories-create-button" onClick={() => setShowCreate(true)}>
             <span className="material-symbols-outlined">add</span>
             New Story
           </button>
+          <ol className="stories-guide" aria-label="Story creation steps">
+            <li>
+              <span>1</span>
+              <p>Create the story title and summary.</p>
+            </li>
+            <li>
+              <span>2</span>
+              <p>Open episodes to upload panels and panel text.</p>
+            </li>
+            <li>
+              <span>3</span>
+              <p>Connect choices, then publish the episode.</p>
+            </li>
+          </ol>
         </div>
       </section>
 

@@ -38,7 +38,7 @@ import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
-type Node = { id: string; assetKey: string };
+type Node = { id: string; assetKey: string; textField?: string | null };
 type Decision = {
   id: string;
   text: string;
@@ -440,12 +440,18 @@ const EpisodeScreen: React.FC<Props> = ({ route }) => {
           return (
             <View style={styles.historyBlock}>
               {item.renderNodes.map((rn, rnIndex) => (
-                <Image
-                  key={`${rn.node.id}-${rnIndex}`}
-                  source={{ uri: rn.mediaUrl }}
-                  style={styles.panelImage}
-                  resizeMode="cover"
-                />
+                <View key={`${rn.node.id}-${rnIndex}`}>
+                  <Image
+                    source={{ uri: rn.mediaUrl }}
+                    style={styles.panelImage}
+                    resizeMode="cover"
+                  />
+                  {rn.node.textField?.trim() ? (
+                    <View style={styles.panelTextWrap}>
+                      <Text style={styles.panelText}>{rn.node.textField.trim()}</Text>
+                    </View>
+                  ) : null}
+                </View>
               ))}
 
               {item.tailNode && !item.decisions.length && (
@@ -564,6 +570,16 @@ const styles = StyleSheet.create({
     width,
     height: width * 1.33,
     backgroundColor: colors.surfaceContainerLowest,
+  },
+  panelTextWrap: {
+    paddingHorizontal: 24,
+    paddingVertical: 18,
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  panelText: {
+    ...textStyles.body,
+    color: colors.onSurface,
+    lineHeight: 24,
   },
   decisionContainer: {
     paddingHorizontal: 24,
