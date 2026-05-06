@@ -73,12 +73,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     <LiquidScreen>
       <View style={styles.topBar}>
         <Text style={[textStyles.headline, styles.brand]}>Discover</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Library')}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Text style={styles.savedLink}>Liked</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.hero}>
@@ -126,6 +120,16 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.tabRow}>
         <Chip label="Recent" selected={tab === 'recent'} onPress={() => setTab('recent')} />
         <Chip label="Top rated" selected={tab === 'top'} onPress={() => setTab('top')} />
+        <Chip 
+          label="Liked" 
+          selected={false} 
+          onPress={() => navigation.navigate('Library', { activeTab: 'liked' })} 
+        />
+        <Chip 
+          label="Saved" 
+          selected={false} 
+          onPress={() => navigation.navigate('Library', { activeTab: 'saved' })} 
+        />
       </View>
 
       {loading && (

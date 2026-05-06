@@ -12,6 +12,24 @@ class RatingUpsert(BaseModel):
     storyId: str
     value: int = Field(default=1, ge=1, le=1, description="Thumbs-up only (1)")
 
+@router.get("/")
+async def get_rating(reader_id: str = Query(..., description="Reader ID")):
+    reader = await db.reader.find_unique(where={"id": reader_id})
+    if not reader:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reader not found")
+
+    ratings = await db.storyrating.find_many(
+        where={"readerId": reader_id, "value": {"gte": 1}},
+        include={"story": True},
+    )
+
+    result = []
+    for r in ratings:
+        story = getattr(r, "story", None)
+        result.append({"storyId": r.storyId, "value": r.value, "story": story})
+
+    return result
+
 
 @router.post("/", status_code=status.HTTP_200_OK)
 async def upsert_rating(payload: RatingUpsert):

@@ -266,6 +266,14 @@ export const removeFavorite = async (readerId: string, storyId: string) => {
 
 // ─── Ratings ───────────────────────────────────────────────────────────────────
 
+export const fetchRating = async (readerId: string) => {
+  const q = new URLSearchParams({ reader_id: readerId });
+  const response = await fetch(`${BASE_URL}/ratings/?${q.toString()}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || 'Failed to fetch rating');
+  return data;
+}
+
 export const upsertStoryRating = async (readerId: string, storyId: string, value = 1) => {
   const response = await fetch(`${BASE_URL}/ratings/`, {
     method: 'POST',
