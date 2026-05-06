@@ -157,7 +157,7 @@ export const fetchEpisodeNodes = async (episodeId: string) => {
   const response = await fetch(`${BASE_URL}/nodes/?episode_id=${episodeId}`);
   const data = await response.json();
   if (!response.ok) throw new Error(data.detail || 'Failed to fetch nodes');
-  return data as { id: string; assetKey: string }[];
+  return data as { id: string; assetKey: string; textField?: string | null }[];
 };
 
 export const fetchNodeMediaUrl = async (nodeId: string): Promise<string> => {

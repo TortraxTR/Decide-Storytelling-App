@@ -45,6 +45,7 @@ export interface EpisodeNodeDto {
     assetKey: string;
     assetWidth: number | null;
     assetHeight: number | null;
+    textField: string | null;
     canvasX?: number | null;
     canvasY?: number | null;
 }
@@ -236,6 +237,7 @@ export async function createNode(payload: {
     assetKey: string;
     assetWidth?: number;
     assetHeight?: number;
+    textField?: string;
     canvasX?: number;
     canvasY?: number;
 }): Promise<EpisodeNodeDto> {
@@ -251,6 +253,7 @@ export async function updateNode(
         assetKey: string;
         assetWidth: number;
         assetHeight: number;
+        textField: string;
         canvasX: number;
         canvasY: number;
     }>,
